@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Restaurant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  address   String?
+  phone     String?
+  email     String?
+  timezone  String   @default("UTC")
+  currency  String   @default("USD")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users           User[]
+  tables          Table[]
+  menuCategories  MenuCategory[]
+  menuItems       MenuItem[]
+  orders          Order[]
+  customers       Customer[]
+  whatsappConfigs WhatsAppConfig[]
+  subscriptions   Subscription[]
+  campaigns       Campaign[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String?
+  role         String   @default("admin")
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model Table {
+  id           String   @id @default(cuid())
+  tableNumber  Int
+  qrCodeUrl    String?
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+
+  @@unique([restaurantId, tableNumber])
+}
+
+model MenuCategory {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  sortOrder    Int      @default(0)
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  menuItems  MenuItem[]
+
+  @@unique([restaurantId, name])
+}
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  imageUrl     String?
+  isAvailable  Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  categoryId   String
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  category   MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  variants   MenuItemVariant[]
+  orderItems OrderItem[]
+}
+
+model MenuItemVariant {
+  id        String   @id @default(cuid())
+  name      String
+  priceMod  Decimal  @default(0) @db.Decimal(10, 2)
+  itemId    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  item       MenuItem    @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  status       String   @default("pending")
+  total        Decimal  @db.Decimal(10, 2)
+  notes        String?
+  customerId   String?
+  tableId      String
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  table         Table                 @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer      Customer?             @relation(fields: [customerId], references: [id])
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+  feedbacks     Feedback[]
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  orderId   String
+  itemId    String
+  variantId String?
+  createdAt DateTime @default(now())
+
+  order   Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  item    MenuItem         @relation(fields: [itemId], references: [id])
+  variant MenuItemVariant? @relation(fields: [variantId], references: [id])
+}
+
+model OrderStatusHistory {
+  id        String   @id @default(cuid())
+  status    String
+  orderId   String
+  changedBy String?
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+model Customer {
+  id          String    @id @default(cuid())
+  phone       String
+  name        String?
+  totalOrders Int       @default(0)
+  lastVisit   DateTime?
+  restaurantId String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders     Order[]
+  feedbacks  Feedback[]
+  loyalty    LoyaltyProgram?
+
+  @@unique([restaurantId, phone])
+}
+
+model Feedback {
+  id         String   @id @default(cuid())
+  rating     Int
+  comment    String?
+  orderId    String
+  customerId String
+  createdAt  DateTime @default(now())
+
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model LoyaltyProgram {
+  id             String   @id @default(cuid())
+  pointsEarned   Int      @default(0)
+  pointsRedeemed Int      @default(0)
+  tier           String   @default("bronze")
+  customerId     String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model WhatsAppConfig {
+  id           String   @id @default(cuid())
+  sessionId    Int?
+  apiKey       String?
+  isConnected  Boolean  @default(false)
+  restaurantId String   @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model Subscription {
+  id               String    @id @default(cuid())
+  plan             String    @default("basic")
+  status           String    @default("active")
+  stripeSubId      String?
+  currentPeriodEnd DateTime?
+  restaurantId     String    @unique
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
+
+model Campaign {
+  id              String    @id @default(cuid())
+  name            String
+  messageTemplate String
+  targetFilter    String?
+  sentAt          DateTime?
+  restaurantId    String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+}
