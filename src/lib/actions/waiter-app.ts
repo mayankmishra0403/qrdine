@@ -153,7 +153,7 @@ export async function createWaiterAppOrder(data: {
           const billItemLines = order.items
             .map((i) => `  ${i.item.name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`)
             .join("\n");
-          const billLink = `${tunnelUrl}/waiter-app/bill/${order.id}`;
+          const billLink = `${tunnelUrl}/bill/${order.id}`;
           await sendWhatsAppMessage(fullPhone,
             `🧾 *Your Bill* — ${order.restaurant?.name}\n\n── Items ──\n${billItemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nPlease pay at the counter.\nThank you!`);
         }
@@ -222,7 +222,7 @@ export async function requestWaiterBill(orderId: string) {
     const total = Number(order.total);
     const itemLines = order.items.map((i) => `  ${i.item.name}${i.variant ? ` (${i.variant.name})` : ""} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`).join("\n");
     const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const billLink = `${tunnelUrl}/waiter-app/bill/${orderId}`;
+    const billLink = `${tunnelUrl}/bill/${orderId}`;
 
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
       await sendWhatsAppMessage(order.customer.phone,

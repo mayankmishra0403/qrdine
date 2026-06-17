@@ -1,0 +1,3 @@
+-- Add missing columns to User table
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "pin" TEXT;
+ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "isActive" BOOLEAN NOT NULL DEFAULT true;

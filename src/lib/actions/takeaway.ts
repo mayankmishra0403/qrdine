@@ -202,7 +202,7 @@ export async function requestTakeawayBill(orderId: string) {
 
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
       const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const billLink = `${tunnelUrl}/admin/bill/${orderId}`;
+      const billLink = `${tunnelUrl}/bill/${orderId}`;
       const msg = `🧾 *Your Final Bill* — ${order.restaurant.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${total.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nPlease pay at the counter.\nThank you!`;
       await sendWhatsAppMessage(order.customer.phone, msg);
     }

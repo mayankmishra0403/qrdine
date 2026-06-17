@@ -17,11 +17,13 @@ export default function DineInOrder() {
   const router = useRouter();
   const tableId = params.tableId as string;
 
-  const [data, setData] = useState<{ categories: Array<{ id: string; name: string; items: MenuItem[] }>; orders: Array<{ id: string; tableNumber: number; status: string; total: number; items: Array<{ name: string; quantity: number; unitPrice: number }> }> } | null>(null);
+  const [data, setData] = useState<{ categories: Array<{ id: string; name: string; items: MenuItem[] }>; orders: Array<{ id: string; tableNumber: number; status: string; total: number; customerName: string | null; customerPhone: string | null; items: Array<{ name: string; quantity: number; unitPrice: number }> }> } | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<CartItem[]>([]);
   const [saving, setSaving] = useState(false);
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
 
   const fetch = useCallback(async () => {
     const r = await getWaiterAppData();
@@ -43,8 +45,13 @@ export default function DineInOrder() {
     if (count === 0) return;
     setSaving(true);
     const items = cart.map((c) => ({ itemId: c.item.id, quantity: c.quantity, unitPrice: c.item.price }));
-    const r = await createWaiterAppOrder({ type: "dine-in", tableId, items });
-    if (r.success) { toast.success("Order created!"); setCart([]); await fetch(); }
+    const r = await createWaiterAppOrder({
+      type: "dine-in", tableId,
+      customerPhone: customerPhone || undefined,
+      customerName: customerName || undefined,
+      items,
+    });
+    if (r.success) { toast.success("Order created!"); setCart([]); setCustomerName(""); setCustomerPhone(""); await fetch(); }
     else toast.error(r.error || "Failed");
     setSaving(false);
   }
@@ -72,13 +79,24 @@ export default function DineInOrder() {
   return (
     <div className="min-h-dvh bg-gray-50 flex flex-col max-w-lg mx-auto">
       <div className="bg-white px-4 pt-3 pb-2 sticky top-0 z-10 border-b">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-1.5">
           <button className="text-lg" onClick={() => router.push("/waiter-app/table/select")}>←</button>
           <h1 className="text-base font-bold">Table {tableInfo.tableNumber}</h1>
           <Badge variant="outline" className={`text-[10px] ${tableInfo.status === "vacant" ? "text-green-700 border-green-300" : "text-red-700 border-red-300"}`}>
             {tableInfo.status}
           </Badge>
         </div>
+        {table?.customerName || table?.customerPhone ? (
+          <div className="text-[10px] text-muted-foreground flex items-center gap-2">
+            {table.customerName && <span>{table.customerName}</span>}
+            {table.customerPhone && <span>📞 {table.customerPhone}</span>}
+          </div>
+        ) : !table && (
+          <div className="grid grid-cols-2 gap-1.5">
+            <Input placeholder="Phone (for WhatsApp bill)" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))} className="h-8 text-xs" />
+            <Input placeholder="Name (optional)" value={customerName} onChange={(e) => setCustomerName(e.target.value)} className="h-8 text-xs" />
+          </div>
+        )}
       </div>
 
       {/* Existing Order */}

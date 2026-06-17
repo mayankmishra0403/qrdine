@@ -220,7 +220,7 @@ export async function requestBill(orderId: string) {
       .join("\n");
 
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
-      const billLink = `${process.env.TUNNEL_URL || "http://localhost:3000"}/admin/bill/${orderId}`;
+      const billLink = `${process.env.TUNNEL_URL || "http://localhost:3000"}/bill/${orderId}`;
       const billMsg = `🧾 *Your Final Bill* - ${order.restaurant.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${total.toFixed(2)}*\n\n📎 Open Bill: ${billLink}\n\nPlease pay at the counter.\nThank you!`;
       const billResult = await sendWhatsAppMessage(order.customer.phone, billMsg);
       if (!billResult.success) console.error("[Waiter] Bill WhatsApp failed:", billResult.error);
