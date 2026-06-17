@@ -32,16 +32,31 @@ if [ ! -d "$REPO_DIR" ]; then
   mkdir -p "$REPO_DIR"
   git clone "$REPO_URL" "$REPO_DIR"
 else
-  cd "$REPO_DIR" && git pull origin main 2>/dev/null || true
+  cd "$REPO_DIR" && git fetch origin main && git reset --hard origin/main 2>/dev/null || true
 fi
 cd "$REPO_DIR"
+
+# Verify critical files exist
+if [ ! -f "docker/docker-compose.yml" ]; then
+  echo -e "${RED}  ❌ Missing docker/docker-compose.yml — retrying clone...${NC}"
+  rm -rf "$REPO_DIR"
+  mkdir -p "$REPO_DIR"
+  git clone "$REPO_URL" "$REPO_DIR"
+  cd "$REPO_DIR"
+fi
+
+if [ ! -f "docker/docker-compose.yml" ]; then
+  echo -e "${RED}  ❌ Still missing. Check repo at $REPO_URL${NC}"
+  exit 1
+fi
+
 echo -e "${GREEN}  ✅ Repository ready at $REPO_DIR${NC}"
 
 # ── 4. .env ──
 echo -e "${YELLOW}[4/6] Configuring environment...${NC}"
-mkdir -p docker
-if [ ! -f docker/.env ]; then
-  cat > docker/.env << EOF
+mkdir -p "$REPO_DIR/docker"
+if [ ! -f "$REPO_DIR/docker/.env" ]; then
+  cat > "$REPO_DIR/docker/.env" << EOF
 DATABASE_URL="postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
 REDIS_URL="redis://redis:6379"
 AUTH_SECRET="$(openssl rand -hex 32)"
@@ -59,7 +74,7 @@ fi
 
 # ── 5. Start Services ──
 echo -e "${YELLOW}[5/6] Starting services (this takes 5-10 mins first time)...${NC}"
-docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -2
+cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -2
 echo -e "${GREEN}  ✅ Services started${NC}"
 
 # ── 6. Database ──
@@ -68,7 +83,7 @@ echo "  Waiting for services to be ready..."
 sleep 20
 
 # Push schema using psql
-docker compose -f docker/docker-compose.yml exec -T postgres sh -c 'psql -U qrdine -d qrdine' << 'SQL' 2>/dev/null || true
+cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml exec -T postgres sh -c 'psql -U qrdine -d qrdine' << 'SQL' 2>/dev/null || true
 ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS gstin TEXT;
 ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS pan TEXT;
 ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS gstin TEXT;
@@ -88,7 +103,7 @@ ALTER TABLE "Table" ADD COLUMN IF NOT EXISTS "roomId" TEXT;
 SQL
 
 # Seed
-docker compose -f docker/docker-compose.yml exec -T app sh -c '
+cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml exec -T app sh -c '
   cat > /tmp/seed.mjs << "ENDSCRIPT"
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
