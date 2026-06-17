@@ -76,7 +76,6 @@ sleep 15
 echo "Seeding database..."
 docker compose -f docker/docker-compose.yml exec -T app node -e "
 const { PrismaClient } = require('@prisma/client');
-const bcrypt = require('bcryptjs');
 const p = new PrismaClient();
 (async()=>{
   const existing = await p.restaurant.findFirst();
@@ -84,12 +83,11 @@ const p = new PrismaClient();
   const rest = await p.restaurant.create({
     data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!' }
   });
-  const hash = await bcrypt.hash('Admin@2006', 10);
   await p.user.createMany({ data: [
-    { email: 'admin@rb.com', passwordHash: hash, name: 'Admin', role: 'owner', pin: '2006', restaurantId: rest.id },
-    { email: 'cashier@rb.com', passwordHash: hash, name: 'Cashier', role: 'cashier', pin: '5678', restaurantId: rest.id },
-    { email: 'kitchen@rb.com', passwordHash: hash, name: 'Kitchen Staff', role: 'kitchen', pin: '9012', restaurantId: rest.id },
-    { email: 'waiter@rb.com', passwordHash: hash, name: 'Waiter', role: 'waiter', pin: '3456', restaurantId: rest.id }
+    { email: 'admin@rb.com', passwordHash: '\$2b\$10\$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW', name: 'Admin', role: 'owner', pin: '2006', restaurantId: rest.id },
+    { email: 'cashier@rb.com', passwordHash: '\$2b\$10\$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW', name: 'Cashier', role: 'cashier', pin: '5678', restaurantId: rest.id },
+    { email: 'kitchen@rb.com', passwordHash: '\$2b\$10\$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW', name: 'Kitchen Staff', role: 'kitchen', pin: '9012', restaurantId: rest.id },
+    { email: 'waiter@rb.com', passwordHash: '\$2b\$10\$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW', name: 'Waiter', role: 'waiter', pin: '3456', restaurantId: rest.id }
   ]});
   for (let i = 1; i <= 5; i++) { await p.table.create({ data: { tableNumber: i, capacity: [2,4,4,6,2][i-1], restaurantId: rest.id } }); }
   const slabs = [
