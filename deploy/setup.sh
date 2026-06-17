@@ -68,9 +68,15 @@ for i in $(seq 1 30); do
   sleep 2
 done
 
-# Wait for migrations (app runs them on startup), then seed
-echo "Waiting for migrations to complete..."
-sleep 15
+# Wait for app to be fully ready (db push + server start)
+echo "Waiting for app health check..."
+for i in $(seq 1 30); do
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null | grep -q 200; then
+    echo "App ready"
+    break
+  fi
+  sleep 4
+done
 
 # ── Seed Database ──
 echo "Seeding database..."
@@ -136,12 +142,22 @@ echo -e "${GREEN}[4/5] Services started${NC}"
 
 # ── 5. Nginx Reverse Proxy ──
 echo -e "${YELLOW}[5/5] Setting up Nginx for ${DOMAIN}...${NC}"
-sudo apt-get update -qq && sudo apt-get install -y -qq nginx 2>/dev/null || true
+sudo apt-get update -qq && sudo apt-get install -y -qq curl nginx certbot python3-certbot-nginx 2>/dev/null || true
+
+# Wait for app to actually respond
+echo "Waiting for app to be ready..."
+for i in $(seq 1 30); do
+  if curl -s -o /dev/null -w "%{http_code}" http://localhost:3000/ 2>/dev/null | grep -q 200; then
+    echo "App ready"
+    break
+  fi
+  sleep 3
+done
 
 sudo tee /etc/nginx/sites-enabled/ritam-bharat > /dev/null << 'NGINX'
 server {
-    listen 80;
-    server_name pos.ritambharat.software;
+    listen 80 default_server;
+    server_name pos.ritambharat.software _;
     client_max_body_size 50m;
 
     location / {
@@ -155,10 +171,25 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_cache_bypass $http_upgrade;
     }
+
+    location /.well-known/acme-challenge/ {
+        root /var/www/html;
+    }
 }
 NGINX
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t 2>/dev/null && sudo systemctl restart nginx 2>/dev/null || true
+sudo mkdir -p /var/www/html
+sudo nginx -t && sudo systemctl restart nginx
+
+# Try Let's Encrypt SSL (skip if DNS not pointed)
+echo "Trying Let's Encrypt SSL..."
+if sudo certbot --nginx -d "${DOMAIN}" --non-interactive --agree-tos --email "admin@${DOMAIN}" --redirect 2>/dev/null; then
+  echo "SSL obtained! Configuring auto-renewal..."
+  (sudo crontab -l 2>/dev/null; echo "0 3 * * * /usr/bin/certbot renew --quiet") | sudo crontab -
+else
+  echo "SSL skipped (point DNS ${DOMAIN} → $(curl -s http://checkip.amazonaws.com) to enable)"
+fi
+
 echo -e "${GREEN}[5/5] Nginx configured${NC}"
 
 # ── Done ──
