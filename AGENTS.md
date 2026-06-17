@@ -15,10 +15,20 @@ npx prisma db seed                    # Seeds demo data
 npm run dev                           # Start dev server
 ```
 
-## Docker (full stack with Evolution API + Redis):
+## One-Command VPS Deploy (fresh Ubuntu droplet):
 
 ```bash
-docker compose -f docker/docker-compose.yml up -d
+git clone https://github.com/mayankmishra0403/qrdine.git
+cd qrdine
+./start.sh
+```
+
+This installs Docker, clones repo to /opt/ritambharat-pos, builds containers, runs migrations, seeds data, and configures Nginx for pos.ritambharat.software.
+
+## Docker (local dev — full stack with Evolution API + Redis):
+
+```bash
+docker compose -f docker/docker-compose.yml up -d --build
 ```
 
 ## Environment Variables (.env):
