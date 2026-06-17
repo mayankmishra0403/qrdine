@@ -10,12 +10,25 @@ export async function updateRestaurant(data: {
   name?: string;
   address?: string;
   phone?: string;
+  email?: string;
+  gstin?: string;
+  pan?: string;
   currency?: string;
+  timezone?: string;
+  taxRate?: number;
+  serviceCharge?: number;
+  logo?: string;
+  billFooter?: string;
 }) {
   try {
     const session = await requireAuth();
 
-    const parsed = restaurantUpdateSchema.safeParse(data);
+    const cleanData = { ...data };
+    for (const [key, val] of Object.entries(cleanData)) {
+      if (val === "") cleanData[key as keyof typeof cleanData] = undefined as never;
+    }
+
+    const parsed = restaurantUpdateSchema.safeParse(cleanData);
     if (!parsed.success) {
       throw new ValidationError(parsed.error.issues[0].message);
     }

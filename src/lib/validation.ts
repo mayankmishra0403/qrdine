@@ -41,7 +41,15 @@ export const restaurantUpdateSchema = z.object({
   name: z.string().min(1).max(200).optional(),
   address: z.string().max(500).optional(),
   phone: z.string().max(20).optional(),
+  email: z.string().email().optional().or(z.literal("")),
+  gstin: z.string().max(20).optional().or(z.literal("")),
+  pan: z.string().max(20).optional().or(z.literal("")),
   currency: z.string().length(3).optional(),
+  timezone: z.string().optional(),
+  taxRate: z.number().min(0).max(100).optional(),
+  serviceCharge: z.number().min(0).max(100).optional(),
+  logo: z.string().optional().or(z.literal("")),
+  billFooter: z.string().max(500).optional().or(z.literal("")),
 });
 
 export const loginSchema = z.object({

@@ -17,6 +17,7 @@ model Restaurant {
   phone          String?
   email          String?
   gstin          String?
+  billFooter     String   @default("Thank you! Visit again!")
   pan            String?
   timezone       String   @default("UTC")
   currency       String   @default("INR")

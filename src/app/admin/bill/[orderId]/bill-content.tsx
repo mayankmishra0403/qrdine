@@ -9,7 +9,7 @@ type BillItem = { sr: number; name: string; hsn: string; qty: number; rate: numb
 type HsnRow = { hsn: string; taxable: number; cgst: number; sgst: number; igst: number };
 type PaymentInfo = { method: string; amount: number; reference: string | null; createdAt: string };
 type CustomerInfo = { name: string | null; phone: string | null; gstin: string | null; gstCategory: string | null };
-type RestaurantInfo = { name: string; address: string | null; phone: string | null; email: string | null; gstin: string | null; pan: string | null };
+type RestaurantInfo = { name: string; address: string | null; phone: string | null; email: string | null; gstin: string | null; pan: string | null; billFooter: string | null };
 
 type BillData = {
   invoiceNo: string;
@@ -64,11 +64,12 @@ export function BillContent({ data }: { data: Record<string, unknown> }) {
           <div className="bill-header">
             <h1 className="bill-restaurant-name">{bill.restaurant.name}</h1>
             <p className="bill-address">{bill.restaurant.address || ""}</p>
-            {bill.restaurant.phone && <p className="bill-info">📞 {bill.restaurant.phone}</p>}
-            <div className="bill-gst-row">
-              {bill.restaurant.gstin && <span>GSTIN: {bill.restaurant.gstin}</span>}
-              {bill.restaurant.pan && <span>PAN: {bill.restaurant.pan}</span>}
-            </div>
+          {bill.restaurant.phone && <p className="bill-info">📞 {bill.restaurant.phone}</p>}
+          {bill.restaurant.email && <p className="bill-info">✉️ {bill.restaurant.email}</p>}
+          <div className="bill-gst-row">
+            {bill.restaurant.gstin && <span>GSTIN: {bill.restaurant.gstin}</span>}
+            {bill.restaurant.pan && <span>PAN: {bill.restaurant.pan}</span>}
+          </div>
           </div>
 
           <div className="bill-divider" />
@@ -217,7 +218,7 @@ export function BillContent({ data }: { data: Record<string, unknown> }) {
           {/* Footer */}
           <div className="bill-footer">
             <div className="bill-divider" />
-            <p className="bill-thanks">Thank you! Visit again!</p>
+            <p className="bill-thanks">{(bill.restaurant as unknown as Record<string, string>).billFooter || "Thank you! Visit again!"}</p>
             {bill.customer?.gstin && <p className="bill-customer-gst">Customer GSTIN: {bill.customer.gstin}</p>}
             <p className="bill-powered">This is a computer-generated invoice</p>
             <p className="bill-powered">Powered by Ritam Bharat POS</p>

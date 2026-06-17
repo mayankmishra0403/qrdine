@@ -8,7 +8,7 @@ export default async function SettingsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold">Settings</h1>
-      <SettingsForm restaurant={restaurant} />
+      <SettingsForm restaurant={restaurant as unknown as Record<string, unknown>} />
     </div>
   );
 }
