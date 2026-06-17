@@ -73,7 +73,7 @@ export function LoginForm() {
   function redirectByRole(role?: string) {
     if (role === "kitchen") router.push("/kitchen");
     else if (role === "cashier") router.push("/admin/pos");
-    else if (role === "waiter") router.push("/waiter");
+    else if (role === "waiter") router.push("/waiter-app");
     else router.push("/admin");
     router.refresh();
   }

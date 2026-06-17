@@ -9,7 +9,7 @@ const navLinks = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/pos", label: "POS Billing" },
   { href: "/admin/takeaway", label: "📦 Takeaway" },
-  { href: "/waiter", label: "Waiter Panel" },
+  { href: "/waiter-app", label: "Waiter App" },
   { href: "/admin/menu", label: "Menu" },
   { href: "/admin/tables", label: "Tables" },
   { href: "/admin/rooms", label: "Rooms/Zones" },
