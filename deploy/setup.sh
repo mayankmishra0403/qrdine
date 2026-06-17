@@ -3,89 +3,85 @@ set -e
 
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
 
-echo "╔═══════════════════════════════════════════════════╗"
-echo "║     🚀 Ritam Bharat POS — One-Click Deploy       ║"
-echo "╚═══════════════════════════════════════════════════╝"
-echo ""
-
+DOMAIN="pos.ritambharat.software"
 REPO_URL="https://github.com/mayankmishra0403/qrdine.git"
 REPO_DIR="/opt/ritambharat-pos"
 
-# ── 1. Install Docker ──
+echo "╔═══════════════════════════════════════════════════╗"
+echo "║     🚀 Ritam Bharat POS — Deploy                  ║"
+echo "╚═══════════════════════════════════════════════════╝"
+echo ""
+
+# ── 1. Docker ──
 if ! command -v docker &>/dev/null; then
-  echo -e "${YELLOW}[1/6] Installing Docker...${NC}"
+  echo -e "${YELLOW}[1/5] Installing Docker...${NC}"
   curl -fsSL https://get.docker.com | sh
-  echo -e "${GREEN}  ✅ Docker installed${NC}"
-  echo -e "${YELLOW}  ⚠️  Re-login or run: newgrp docker${NC}"
 fi
+echo -e "${GREEN}[1/5] Docker ready${NC}"
 
-# ── 2. Docker Compose ──
-if ! docker compose version &>/dev/null; then
-  echo -e "${YELLOW}[2/6] Installing Docker Compose...${NC}"
-  apt-get update -qq && apt-get install -y -qq docker-compose-plugin 2>/dev/null || true
-fi
-echo -e "${GREEN}[2/6] Docker ready${NC}"
-
-# ── 3. Clone Repo ──
-echo -e "${YELLOW}[3/6] Setting up repository...${NC}"
-if [ ! -d "$REPO_DIR" ]; then
-  mkdir -p "$REPO_DIR"
-  git clone "$REPO_URL" "$REPO_DIR"
-else
-  cd "$REPO_DIR" && git fetch origin main && git reset --hard origin/main 2>/dev/null || true
-fi
+# ── 2. Repo ──
+echo -e "${YELLOW}[2/5] Setting up repository...${NC}"
+if [ -d "$REPO_DIR" ]; then rm -rf "$REPO_DIR"; fi
+git clone --depth 1 "$REPO_URL" "$REPO_DIR"
 cd "$REPO_DIR"
+echo -e "${GREEN}[2/5] Repository ready${NC}"
 
-# Verify critical files exist
-if [ ! -f "docker/docker-compose.yml" ]; then
-  echo -e "${RED}  ❌ Missing docker/docker-compose.yml — retrying clone...${NC}"
-  rm -rf "$REPO_DIR"
-  mkdir -p "$REPO_DIR"
-  git clone "$REPO_URL" "$REPO_DIR"
-  cd "$REPO_DIR"
-fi
-
-if [ ! -f "docker/docker-compose.yml" ]; then
-  echo -e "${RED}  ❌ Still missing. Check repo at $REPO_URL${NC}"
-  exit 1
-fi
-
-echo -e "${GREEN}  ✅ Repository ready at $REPO_DIR${NC}"
-
-# ── 4. .env ──
-echo -e "${YELLOW}[4/6] Configuring environment...${NC}"
+# ── 3. .env ──
+echo -e "${YELLOW}[3/5] Creating environment...${NC}"
 mkdir -p "$REPO_DIR/docker"
-if [ ! -f "$REPO_DIR/docker/.env" ]; then
-  cat > "$REPO_DIR/docker/.env" << EOF
+cat > "$REPO_DIR/docker/.env" << EOF
 DATABASE_URL="postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
 REDIS_URL="redis://redis:6379"
 AUTH_SECRET="$(openssl rand -hex 32)"
 AUTH_URL="http://localhost:3000"
 AUTH_TRUST_HOST="true"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_APP_URL="http://${DOMAIN}"
 EVOLUTION_API_URL="http://evolution_api:8080"
 EVOLUTION_API_KEY="$(openssl rand -hex 32)"
 EVOLUTION_INSTANCE_NAME="ritam-bharat-pos"
+TUNNEL_URL="https://${DOMAIN}"
 EOF
-  echo -e "${GREEN}  ✅ docker/.env created${NC}"
-else
-  echo -e "${GREEN}  ✅ docker/.env exists${NC}"
-fi
+echo -e "${GREEN}[3/5] Environment created${NC}"
 
-# ── 5. Start Services ──
-echo -e "${YELLOW}[5/6] Starting services (this takes 5-10 mins first time)...${NC}"
-cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -2
-echo -e "${GREEN}  ✅ Services started${NC}"
+# ── 4. Start Services ──
+echo -e "${YELLOW}[4/5] Starting services...${NC}"
+cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -1
+echo -e "${GREEN}[4/5] Services started${NC}"
 
-# ── 6. Database ──
-echo -e "${YELLOW}[6/6] Initializing database...${NC}"
-echo "  Waiting for services to be ready..."
-sleep 20
+# ── 5. Nginx Reverse Proxy ──
+echo -e "${YELLOW}[5/5] Setting up Nginx for ${DOMAIN}...${NC}"
+sudo apt-get install -y -qq nginx 2>/dev/null || true
 
-# Push schema using psql
-cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml exec -T postgres sh -c 'psql -U qrdine -d qrdine' << 'SQL' 2>/dev/null || true
+sudo tee /etc/nginx/sites-enabled/ritam-bharat > /dev/null << 'NGINX'
+server {
+    listen 80;
+    server_name pos.ritambharat.software;
+    client_max_body_size 50m;
+
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+NGINX
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t && sudo systemctl restart nginx
+echo -e "${GREEN}[5/5] Nginx configured${NC}"
+
+# ── Database Init ──
+echo "Waiting for database..."; sleep 20
+cd "$REPO_DIR"
+docker compose -f docker/docker-compose.yml exec -T postgres sh -c 'psql -U qrdine -d qrdine' << 'SQL' 2>/dev/null || true
 ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS gstin TEXT;
 ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS pan TEXT;
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "billFooter" TEXT DEFAULT 'Thank you! Visit again!';
 ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS gstin TEXT;
 ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "gstCategory" TEXT DEFAULT 'unregistered';
 ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "hsnCode" TEXT;
@@ -96,14 +92,9 @@ ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "igstAmount" DECIMAL(10,2) DEFAUL
 ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "amountInWords" TEXT;
 ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "customerId" TEXT;
 ALTER TABLE "Order" ALTER COLUMN "tableId" DROP NOT NULL;
-ALTER TABLE "Table" ADD COLUMN IF NOT EXISTS shape TEXT DEFAULT 'circle';
-ALTER TABLE "Table" ADD COLUMN IF NOT EXISTS "posX" INTEGER;
-ALTER TABLE "Table" ADD COLUMN IF NOT EXISTS "posY" INTEGER;
-ALTER TABLE "Table" ADD COLUMN IF NOT EXISTS "roomId" TEXT;
 SQL
 
-# Seed
-cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml exec -T app sh -c '
+docker compose -f docker/docker-compose.yml exec -T app sh -c '
   cat > /tmp/seed.mjs << "ENDSCRIPT"
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
@@ -112,7 +103,7 @@ try {
   const existing = await p.restaurant.findFirst();
   if (existing) { console.log("ALREADY_SEEDED"); process.exit(0); }
   const rest = await p.restaurant.create({
-    data: { name: "Ritam Bharat", slug: "ritam-bharat", address: "Your Restaurant Address", phone: "+919999999999", currency: "INR", gstin: "22AAAAA0000A1Z5", pan: "AAAAA0000A" }
+    data: { name: "Ritam Bharat", slug: "ritam-bharat", address: "Your Restaurant Address", phone: "+919999999999", email: "hello@ritambharat.software", currency: "INR", gstin: "22AAAAA0000A1Z5", pan: "AAAAA0000A" }
   });
   const hash = await bcrypt.hash("Admin@2006", 10);
   await p.user.createMany({ data: [
@@ -137,23 +128,16 @@ ENDSCRIPT
   cd /tmp && node seed.mjs 2>/dev/null
 ' 2>/dev/null
 
-echo -e "${GREEN}  ✅ Database ready${NC}"
-
-# ── Done ──
-SERVER_IP=$(curl -s ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')
 echo ""
 echo "╔═══════════════════════════════════════════════════╗"
-echo -e "║  ${GREEN}✅ Ritam Bharat POS is LIVE!${NC}                ║"
+echo -e "║  ${GREEN}✅ Ritam Bharat POS is LIVE!${NC}                  ║"
 echo "╚═══════════════════════════════════════════════════╝"
 echo ""
-echo "  🌐 http://${SERVER_IP}:3000"
+echo "  🌐 http://${DOMAIN}"
 echo "  🔐 admin@rb.com / Admin@2006 (PIN: 2006)"
 echo ""
-echo "  📋 Admin:       http://${SERVER_IP}:3000/admin"
-echo "  🧑‍🍳 Kitchen:    http://${SERVER_IP}:3000/kitchen"
-echo "  📱 Waiter App:  http://${SERVER_IP}:3000/waiter-app"
-echo "  📦 Takeaway:    http://${SERVER_IP}:3000/admin/takeaway"
-echo ""
-echo "  💡 Point your domain A record → ${SERVER_IP}"
-echo "  📖 Logs: docker compose -f $REPO_DIR/docker/docker-compose.yml logs -f"
+echo "  📋 Admin:       http://${DOMAIN}/admin"
+echo "  🧑‍🍳 Kitchen:    http://${DOMAIN}/kitchen"
+echo "  📱 Waiter App:  http://${DOMAIN}/waiter-app"
+echo "  📦 Takeaway:    http://${DOMAIN}/admin/takeaway"
 echo ""
