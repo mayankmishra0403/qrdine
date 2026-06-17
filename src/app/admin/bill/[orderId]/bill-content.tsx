@@ -200,15 +200,13 @@ export function BillContent({ data }: { data: Record<string, unknown> }) {
       <style jsx global>{`
         @page { size: 80mm 297mm; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: white !important; }
-        nav.w-64 { display: none !important; }
-        .flex.min-h-screen > main.flex-1 { padding: 0 !important; max-width: 100% !important; margin: 0 !important; }
-        .flex.min-h-screen { display: block !important; }
+        html, body { background: white !important; margin: 0 !important; padding: 0 !important; min-height: auto !important; }
+        body > div, body > div > div { min-height: auto !important; }
+        nav, header, footer, .md\\:hidden, .md\\:flex, [class*="fixed"], .min-h-screen.bg-background > *:not(main) { display: none !important; }
+        .min-h-screen.bg-background { display: block !important; background: white !important; min-height: auto !important; }
+        .min-h-screen.bg-background main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; min-height: auto !important; }
         .bill-container { width: 72mm; margin: 0 auto; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; color: #000; }
-        @media print {
-          body { margin: 0 !important; padding: 0 !important; }
-          .bill-container { width: 72mm; }
-        }
+        @media print { .bill-container { width: 72mm; } }
         .bill-header { text-align: center; margin-bottom: 6px; }
         .bill-restaurant-name { font-size: 16px; font-weight: bold; margin: 0 0 2px; text-transform: uppercase; letter-spacing: 1px; }
         .bill-address { font-size: 9px; color: #333; margin: 1px 0; }
