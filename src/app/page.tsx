@@ -4,13 +4,13 @@ export default function HomePage() {
   return (
     <main className="flex-1 flex items-center justify-center">
       <div className="text-center space-y-6 max-w-lg mx-auto px-4">
-        <h1 className="text-4xl font-bold tracking-tight">QRDine</h1>
+        <h1 className="text-4xl font-bold tracking-tight">Ritam Bharat POS</h1>
         <p className="text-xl text-muted-foreground">
-          Scan. Order. Serve. Grow.
+          QR Ordering & Restaurant Operating System
         </p>
         <p className="text-gray-500">
-          QR-based digital ordering platform for restaurants.
-          Customers scan, order, and pay — all from their phone.
+          Complete POS, QR ordering, kitchen display, and inventory
+          for Indian restaurants. Customers scan, order, and pay — all from their phone.
         </p>
         <div className="flex gap-4 justify-center">
           <Link

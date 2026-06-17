@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import {
   connectWhatsApp,
-  connectWithPairingCode,
   checkWhatsAppStatus,
   disconnectWhatsApp,
   getWhatsAppConfig,
@@ -25,11 +26,11 @@ export default function WhatsAppPage() {
   const [config, setConfig] = useState<Config | null>(null);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
-  const [qrcode, setQrcode] = useState<string | null>(null);
   const [envConfigured, setEnvConfigured] = useState(false);
   const [state, setState] = useState<string>("");
   const [phone, setPhone] = useState("");
   const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState(0);
 
   useEffect(() => {
     Promise.all([
@@ -51,18 +52,23 @@ export default function WhatsAppPage() {
       if (result.state) setState(result.state);
       if (connected) {
         setConfig((prev) => prev ? { ...prev, isConnected: true } : null);
-        setQrcode(null);
+        setPairingCode(null);
+        setCountdown(0);
         toast.success("WhatsApp connected successfully!");
       }
     }
   }, []);
 
   useEffect(() => {
-    if (qrcode || pairingCode) {
+    if (pairingCode && countdown > 0) {
       const interval = setInterval(pollStatus, 3000);
-      return () => clearInterval(interval);
+      const tick = setInterval(() => setCountdown((c) => Math.max(0, c - 1)), 1000);
+      return () => {
+        clearInterval(interval);
+        clearInterval(tick);
+      };
     }
-  }, [qrcode, pairingCode, pollStatus]);
+  }, [pairingCode, countdown, pollStatus]);
 
   useEffect(() => {
     if (config?.isConnected) {
@@ -73,32 +79,21 @@ export default function WhatsAppPage() {
   }, [config?.isConnected]);
 
   async function handleConnect() {
-    setConnecting(true);
-    const result = await connectWhatsApp();
-    if (result.success) {
-      if (result.qrcode) {
-        setQrcode(result.qrcode);
-      } else if (result.connected) {
-        setConfig((prev) => prev ? { ...prev, isConnected: true } : null);
-        setState("open");
-        toast.success("Already connected");
-      }
-    } else {
-      toast.error(result.error || "Connection failed");
+    const raw = phone.replace(/\D/g, "");
+    if (!raw || raw.length < 10) {
+      toast.error("Enter a valid phone number with country code");
+      return;
     }
-    setConnecting(false);
-  }
-
-  async function handlePairConnect() {
     setConnecting(true);
-    setQrcode(null);
     setPairingCode(null);
-    const result = await connectWithPairingCode(phone);
+
+    const result = await connectWhatsApp(raw);
     if (result.success && result.pairingCode) {
       setPairingCode(result.pairingCode);
-      toast.success("Pairing code generated! Enter it in WhatsApp.");
+      setCountdown(60);
+      toast.success("Login code generated!");
     } else {
-      toast.error(result.error || "Failed to generate pairing code");
+      toast.error(result.error || "Connection failed");
     }
     setConnecting(false);
   }
@@ -107,7 +102,8 @@ export default function WhatsAppPage() {
     const result = await disconnectWhatsApp();
     if (result.success) {
       setConfig((prev) => prev ? { ...prev, isConnected: false } : null);
-      setQrcode(null);
+      setPairingCode(null);
+      setCountdown(0);
       setState("");
       toast.success("Disconnected");
     } else {
@@ -126,119 +122,103 @@ export default function WhatsAppPage() {
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Connection Status</CardTitle>
+            <CardTitle>Connection</CardTitle>
             {config?.isConnected ? (
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
                 <Badge className="bg-green-100 text-green-800">Connected</Badge>
                 {state && <Badge variant="outline">{state}</Badge>}
               </div>
-            ) : qrcode ? (
-              <Badge variant="secondary">Scan QR Code</Badge>
             ) : (
               <Badge variant="secondary">Not Connected</Badge>
             )}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           {!envConfigured && (
-            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
-              WhatsApp not configured. Set{" "}
-              <code>EVOLUTION_API_KEY</code> and{" "}
-              <code>EVOLUTION_API_URL</code> in your .env file.
+            <p className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+              WhatsApp not configured. Set <code className="text-xs bg-amber-100 px-1 rounded">EVOLUTION_API_KEY</code> and{" "}
+              <code className="text-xs bg-amber-100 px-1 rounded">EVOLUTION_API_URL</code> in your .env file.
             </p>
           )}
 
-          {qrcode && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <img
-                src={qrcode}
-                alt="WhatsApp QR Code"
-                className="w-64 h-64 border rounded-lg"
-              />
-              <p className="text-sm text-muted-foreground text-center">
-                Open WhatsApp on your phone → Settings → Linked Devices →
-                Link a Device. Scan this QR code.
-              </p>
-            </div>
-          )}
-
-          {pairingCode && (
-            <div className="flex flex-col items-center gap-3 py-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-6 py-4 text-center">
-                <p className="text-xs text-blue-600 uppercase tracking-wide font-semibold mb-1">
-                  Pairing Code
-                </p>
-                <p className="text-3xl font-mono font-bold tracking-widest text-blue-900">
-                  {pairingCode}
+          {config?.isConnected ? (
+            <div className="space-y-4">
+              <div className="rounded-lg border border-green-200 bg-green-50 p-4">
+                <p className="text-sm text-green-800 font-medium flex items-center gap-2">
+                  <span className="h-2 w-2 rounded-full bg-green-500" />
+                  WhatsApp is connected and ready to send notifications
                 </p>
               </div>
-              <p className="text-sm text-muted-foreground text-center">
-                Open WhatsApp on your phone → Settings → Linked Devices →
-                Link a Device. Enter this code within 1 minute.
-              </p>
-            </div>
-          )}
-
-          {config?.isConnected ? (
-            <div className="space-y-2 text-sm">
               {config.instanceName && (
-                <p>
-                  <span className="text-muted-foreground">Instance:</span>{" "}
-                  {config.instanceName}
+                <p className="text-sm text-muted-foreground">
+                  <span className="font-medium">Instance:</span> {config.instanceName}
                 </p>
               )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDisconnect}
-              >
+              <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-red-600 border-red-300 hover:bg-red-50">
                 Disconnect & Delete Instance
               </Button>
             </div>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">
-                {qrcode
-                  ? "Scan the QR code with WhatsApp to connect. Waiting..."
-                  : pairingCode
-                    ? "Enter the pairing code in WhatsApp. Waiting..."
-                    : "Connect your WhatsApp to send order notifications to your customers."}
-              </p>
-
-              <div className="flex flex-col gap-2">
-                <p className="text-sm font-medium">Connect via QR Code</p>
-                <Button
-                  onClick={handleConnect}
-                  disabled={connecting || !envConfigured}
-                >
-                  {connecting ? "Connecting..." : qrcode ? "Refresh QR" : "Show QR Code"}
-                </Button>
+          ) : pairingCode ? (
+            <div className="flex flex-col items-center gap-4 py-6">
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-xl px-10 py-6 text-center shadow-sm">
+                <p className="text-xs text-blue-600 uppercase tracking-wider font-semibold mb-2">
+                  Your Login Code
+                </p>
+                <p className="text-4xl font-mono font-bold tracking-[0.3em] text-blue-900 select-all">
+                  {pairingCode}
+                </p>
               </div>
-
-              <div className="border-t pt-3">
-                <p className="text-sm font-medium mb-2">Connect via Phone Number (Link Code)</p>
+              <div className="text-center space-y-2 max-w-sm">
+                <p className="text-sm font-medium text-foreground">How to connect:</p>
+                <ol className="text-sm text-muted-foreground text-left space-y-1.5 list-decimal list-inside">
+                  <li>Open <strong>WhatsApp</strong> on your phone</li>
+                  <li>Go to <strong>Settings</strong> → <strong>Linked Devices</strong></li>
+                  <li>Tap <strong>Link a Device</strong></li>
+                  <li>Enter this code on your phone</li>
+                </ol>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Expires in</span>
+                <span className={`font-mono font-bold ${countdown <= 10 ? "text-red-600" : "text-foreground"}`}>
+                  {Math.floor(countdown / 60)}:{String(countdown % 60).padStart(2, "0")}
+                </span>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleConnect}>
+                Generate New Code
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Connect your WhatsApp business number to send order notifications, receipts, and updates to customers automatically.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="phone">WhatsApp Number (with country code)</Label>
                 <div className="flex gap-2">
-                  <input
+                  <Input
+                    id="phone"
                     type="tel"
-                    placeholder="919305804916"
+                    placeholder="919876543210"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                    className="flex-1"
                   />
                   <Button
-                    onClick={handlePairConnect}
-                    disabled={connecting || !envConfigured || !phone}
+                    onClick={handleConnect}
+                    disabled={connecting || !envConfigured || phone.replace(/\D/g, "").length < 10}
+                    className="shrink-0"
                   >
-                    {connecting ? "Generating..." : "Get Code"}
+                    {connecting ? "Generating Code..." : "Get Login Code"}
                   </Button>
                 </div>
-              </div>
-
-              {!qrcode && !pairingCode && (
                 <p className="text-xs text-muted-foreground">
-                  Uses Evolution API (self-hosted WhatsApp Web gateway).
+                  Example: 919876543210 (91 is India country code, followed by 10-digit number)
                 </p>
-              )}
+              </div>
+              <p className="text-xs text-muted-foreground pt-2 border-t">
+                Uses Evolution API — a self-hosted WhatsApp Web gateway.
+              </p>
             </div>
           )}
         </CardContent>
@@ -247,22 +227,35 @@ export default function WhatsAppPage() {
       <Card>
         <CardHeader>
           <CardTitle>Notification Events</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            These notifications are sent automatically when WhatsApp is connected
+          </p>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3 text-sm">
-            <TemplateRow
+          <div className="space-y-3">
+            <NotificationRow
               title="Order Confirmation"
-              desc="Sent when order is placed"
+              desc="Receipt sent when customer places an order"
               active={config?.isConnected}
             />
-            <TemplateRow
+            <NotificationRow
+              title="Order Confirmed"
+              desc="Sent when restaurant confirms the order"
+              active={config?.isConnected}
+            />
+            <NotificationRow
               title="Order Ready"
-              desc="Sent when order is marked ready"
+              desc="Sent when order is ready for pickup"
               active={config?.isConnected}
             />
-            <TemplateRow
+            <NotificationRow
+              title="Bill/Invoice"
+              desc="Sent when payment is completed"
+              active={config?.isConnected}
+            />
+            <NotificationRow
               title="Order Cancelled"
-              desc="Sent when order is cancelled"
+              desc="Sent if order is cancelled"
               active={config?.isConnected}
             />
           </div>
@@ -272,7 +265,7 @@ export default function WhatsAppPage() {
   );
 }
 
-function TemplateRow({
+function NotificationRow({
   title,
   desc,
   active,
@@ -284,11 +277,11 @@ function TemplateRow({
   return (
     <div className="flex items-center justify-between rounded-lg border p-3">
       <div>
-        <p className="font-medium">{title}</p>
-        <p className="text-muted-foreground">{desc}</p>
+        <p className="font-medium text-sm">{title}</p>
+        <p className="text-xs text-muted-foreground">{desc}</p>
       </div>
       <Badge variant={active ? "default" : "secondary"}>
-        {active ? "Active" : "Pending Setup"}
+        {active ? "Active" : "Connect WhatsApp"}
       </Badge>
     </div>
   );

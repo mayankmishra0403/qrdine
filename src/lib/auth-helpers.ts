@@ -1,4 +1,17 @@
+import { cookies } from "next/headers";
 import { prisma } from "./prisma";
+
+export async function getSession() {
+  const cookieStore = await cookies();
+  const sessionCookie = cookieStore.get("session");
+  if (!sessionCookie) return null;
+
+  try {
+    return JSON.parse(Buffer.from(sessionCookie.value, "base64").toString());
+  } catch {
+    return null;
+  }
+}
 
 async function getDemoSession() {
   const restaurant = await prisma.restaurant.findFirst();
@@ -22,7 +35,15 @@ async function getDemoSession() {
 }
 
 export async function requireAuth() {
-  return getDemoSession();
+  const session = await getSession();
+  if (session) {
+    return { user: session };
+  }
+  try {
+    return await getDemoSession();
+  } catch {
+    throw new Error("Authentication required");
+  }
 }
 
 export async function requireRole(...roles: string[]) {
@@ -31,8 +52,11 @@ export async function requireRole(...roles: string[]) {
   return session;
 }
 
-/** Drop-in replacement for `auth()` when auth is disabled */
 export async function auth() {
+  const session = await getSession();
+  if (session) {
+    return { user: session, expires: new Date(Date.now() + 86400000).toISOString() };
+  }
   try {
     return await getDemoSession();
   } catch {

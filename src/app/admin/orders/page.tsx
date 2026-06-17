@@ -40,7 +40,7 @@ export default async function OrdersPage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <CardTitle className="text-lg">
-                    Table {order.table.tableNumber}
+                    {order.table ? `Table ${order.table.tableNumber}` : "📦 Takeaway"}
                   </CardTitle>
                   <Badge className={statusColors[order.status]}>
                     {order.status}
@@ -114,6 +114,15 @@ export default async function OrdersPage() {
                   >
                     Cancel
                   </OrderStatusButton>
+                )}
+                {["served", "ready"].includes(order.status) && (
+                  <a
+                    href={`/admin/bill/${order.id}`}
+                    target="_blank"
+                    className="inline-flex items-center justify-center rounded-md bg-foreground text-background px-3 py-1.5 text-xs font-medium hover:opacity-90"
+                  >
+                    🧾 Bill
+                  </a>
                 )}
               </div>
             </CardContent>

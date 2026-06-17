@@ -17,6 +17,53 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  evolution_api:
+    image: evoapicloud/evolution-api:v2.3.7
+    ports:
+      - "8080:8080"
+    environment:
+      DATABASE_ENABLED: "true"
+      DATABASE_PROVIDER: "postgresql"
+      DATABASE_CONNECTION_URI: "postgresql://qrdine:qrdine@postgres:5432/evolution?schema=public"
+      DATABASE_SAVE_DATA_INSTANCE: "true"
+      DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
+      DATABASE_SAVE_MESSAGE_UPDATE: "true"
+      AUTHENTICATION_API_KEY: "${EVOLUTION_API_KEY}"
+      AUTHENTICATION_EXPOSE_KEY_FINISH: "true"
+      AUTHENTICATION_TYPE: "apikey"
+      LOG_LEVEL: "ERROR,WEBHOOKS"
+      WEBHOOK_GLOBAL_ENABLED: "true"
+      WEBHOOK_GLOBAL_URL: "http://app:3000/api/whatsapp/webhook/"
+      WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS: "false"
+      WEBHOOK_EVENTS_CONNECTION_UPDATE: "true"
+      WEBHOOK_EVENTS_MESSAGES_UPSERT: "true"
+      CACHE_REDIS_ENABLED: "true"
+      CACHE_REDIS_URI: "redis://redis:6379/6"
+      CACHE_REDIS_SAVE_INSTANCES: "true"
+      DEL_INSTANCE: "false"
+      STORE_MESSAGES: "true"
+      STORE_MESSAGE_UP: "true"
+      MAX_CONNECTIONS: "5"
+    volumes:
+      - evolution_instances:/evolution/instances
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
   app:
     build:
       context: ..
@@ -25,6 +72,7 @@ services:
       - "3000:3000"
     environment:
       DATABASE_URL: "postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
+      REDIS_URL: "redis://redis:6379"
       AUTH_SECRET: "${AUTH_SECRET}"
       AUTH_URL: "http://localhost:3000"
       NEXTAUTH_URL: "http://localhost:3000"
@@ -32,8 +80,13 @@ services:
       EVOLUTION_API_URL: "http://evolution_api:8080"
       EVOLUTION_API_KEY: "${EVOLUTION_API_KEY}"
       EVOLUTION_INSTANCE_NAME: "${EVOLUTION_INSTANCE_NAME}"
+      PRISMA_CLIENT_ENGINE_TYPE: "library"
+      PRISMA_QUERY_ENGINE_LIBRARY: "/app/node_modules/.prisma/client/libquery_engine-linux-musl-arm64-openssl-3.0.x.so.node"
+      TUNNEL_URL: "${TUNNEL_URL}"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     restart: unless-stopped
 
@@ -59,3 +112,5 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
+  evolution_instances:

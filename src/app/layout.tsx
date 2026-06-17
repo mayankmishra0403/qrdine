@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "QRDine – Scan. Order. Serve. Grow.",
-  description: "QR-based digital ordering platform for restaurants",
+  title: "Ritam Bharat POS — Restaurant Operating System",
+  description: "QR ordering, POS billing, kitchen display, and inventory management for Indian restaurants",
 };
 
 export default function RootLayout({

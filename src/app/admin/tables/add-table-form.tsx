@@ -16,6 +16,7 @@ export function AddTableForm() {
 
     const form = new FormData(e.currentTarget);
     const tableNumber = parseInt(form.get("tableNumber") as string);
+    const capacity = parseInt(form.get("capacity") as string) || 4;
 
     if (isNaN(tableNumber) || tableNumber < 1) {
       toast.error("Enter a valid table number");
@@ -23,9 +24,9 @@ export function AddTableForm() {
       return;
     }
 
-    const result = await createTable(tableNumber);
+    const result = await createTable(tableNumber, capacity);
     if (result.success) {
-      toast.success(`Table ${tableNumber} added`);
+      toast.success(`Table ${tableNumber} added (${capacity} seats)`);
       setOpen(false);
     } else {
       toast.error(result.error);
@@ -43,9 +44,18 @@ export function AddTableForm() {
         name="tableNumber"
         type="number"
         min="1"
-        placeholder="Table number"
-        className="w-32"
+        placeholder="Table #"
+        className="w-24"
         required
+      />
+      <Input
+        name="capacity"
+        type="number"
+        min="1"
+        max="50"
+        placeholder="Seats"
+        className="w-20"
+        defaultValue="4"
       />
       <Button type="submit" disabled={loading}>
         {loading ? "Adding..." : "Add"}

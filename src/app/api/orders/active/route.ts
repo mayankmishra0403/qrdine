@@ -29,7 +29,7 @@ export async function GET() {
     status: o.status,
     notes: o.notes,
     createdAt: o.createdAt.toISOString(),
-    table: { id: o.table.id, tableNumber: o.table.tableNumber },
+    table: o.table ? { id: o.table.id, tableNumber: o.table.tableNumber } : null,
     customer: o.customer ? { phone: o.customer.phone, name: o.customer.name } : null,
     items: o.items.map((i) => ({
       id: i.id,

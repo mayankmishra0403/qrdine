@@ -32,11 +32,10 @@ type OrderItemData = {
   variant: { id: string; name: string } | null;
 };
 
-type OrderStatus = {
+type ActiveOrder = {
   id: string;
   status: string;
   total: number;
-  createdAt: string;
   items: OrderItemData[];
 };
 
@@ -55,31 +54,31 @@ export function MenuContent({
   restaurantName,
   tableNumber,
   categories,
+  tableStatus,
+  activeOrder,
 }: {
   restaurantName: string;
   tableNumber: number;
   categories: Category[];
+  tableStatus: string;
+  activeOrder: ActiveOrder | null;
 }) {
   const params = useParams();
   const tableId = params.tableId as string;
 
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [selectedVariants, setSelectedVariants] = useState<
-    Record<string, string | null>
-  >({});
+  const [selectedVariants, setSelectedVariants] = useState<Record<string, string | null>>({});
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  // Order placement state
-  const [order, setOrder] = useState<OrderStatus | null>(null);
+  const [order, setOrder] = useState<ActiveOrder | null>(activeOrder);
   const [placing, setPlacing] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [phone, setPhone] = useState("");
-  const [showPhone, setShowPhone] = useState(true);
+  const [showPhone, setShowPhone] = useState(!activeOrder);
 
-  // Order tracking
-  const [currentStatus, setCurrentStatus] = useState<string | null>(null);
+  const [currentStatus, setCurrentStatus] = useState<string | null>(activeOrder?.status || null);
 
   const fetchOrderStatus = useCallback(async () => {
     if (!order) return;
@@ -89,12 +88,10 @@ export function MenuContent({
         const data = await res.json();
         setCurrentStatus(data.status);
         if (data.items) {
-          setOrder((prev) => prev ? { ...prev, items: data.items } : prev);
+          setOrder((prev) => prev ? { ...prev, items: data.items, status: data.status } : prev);
         }
       }
-    } catch {
-      // silent
-    }
+    } catch {}
   }, [order]);
 
   useEffect(() => {
@@ -106,9 +103,7 @@ export function MenuContent({
 
   function addToCart(item: MenuItem) {
     const variantId = selectedVariants[item.id] || null;
-    const variant = variantId
-      ? item.variants.find((v) => v.id === variantId) || null
-      : null;
+    const variant = variantId ? item.variants.find((v) => v.id === variantId) || null : null;
 
     setCart((prev) => {
       const existing = prev.find(
@@ -125,11 +120,7 @@ export function MenuContent({
     });
   }
 
-  function updateQuantity(
-    itemId: string,
-    variantId: string | null,
-    delta: number
-  ) {
+  function updateQuantity(itemId: string, variantId: string | null, delta: number) {
     setCart((prev) =>
       prev
         .map((c) =>
@@ -151,7 +142,6 @@ export function MenuContent({
     setOrderError(null);
 
     const fullPhone = "91" + raw;
-
     const items = cart.map((c) => ({
       itemId: c.item.id,
       variantId: c.variant?.id,
@@ -161,7 +151,7 @@ export function MenuContent({
 
     const result = await placeOrder(tableId, items, notes || "", fullPhone);
     if (result.success) {
-      setOrder({ id: result.id!, status: result.status!, total: result.total!, createdAt: result.createdAt!, items: result.items || [] });
+      setOrder({ id: result.id!, status: result.status!, total: result.total!, items: result.items || [] });
       setCurrentStatus(result.status!);
       setCart([]);
       setNotes("");
@@ -178,21 +168,17 @@ export function MenuContent({
     setOrder(null);
     setCurrentStatus(null);
     setShowNotes(false);
+    setShowPhone(true);
   }
 
-  const total = cart.reduce(
-    (sum, c) => sum + (c.item.price + (c.variant?.priceMod || 0)) * c.quantity,
-    0
-  );
-
+  const total = cart.reduce((sum, c) => sum + (c.item.price + (c.variant?.priceMod || 0)) * c.quantity, 0);
   const cartCount = cart.reduce((sum, c) => sum + c.quantity, 0);
 
   const filteredCategories = categoryFilter
     ? categories.filter((c) => c.id === categoryFilter)
     : categories;
 
-  // Order tracking view
-  if (order) {
+  if (order && currentStatus !== "served" && currentStatus !== "cancelled") {
     const statusIndex = statusSteps.indexOf(currentStatus || order.status);
     return (
       <main className="max-w-lg mx-auto px-4 py-8 space-y-6 text-center min-h-dvh flex flex-col justify-center">
@@ -201,11 +187,13 @@ export function MenuContent({
           <p className="text-sm text-muted-foreground">Table {tableNumber}</p>
         </div>
 
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-sm text-amber-800">
+          Table is currently occupied — an order is in progress
+        </div>
+
         <div className="space-y-3">
           <h2 className="text-lg font-semibold">
-            {currentStatus
-              ? statusLabels[currentStatus] || currentStatus
-              : "Order Placed"}
+            {currentStatus ? statusLabels[currentStatus] || currentStatus : "Order Placed"}
           </h2>
 
           <div className="flex justify-center">
@@ -215,21 +203,13 @@ export function MenuContent({
                 const isCurrent = i === statusIndex;
                 return (
                   <div key={step} className="flex items-center">
-                    <div
-                      className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                        isActive
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-200 text-gray-400"
-                      } ${isCurrent ? "ring-2 ring-green-500 ring-offset-2" : ""}`}
-                    >
+                    <div className={`shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold ${
+                      isActive ? "bg-green-500 text-white" : "bg-gray-200 text-gray-400"
+                    } ${isCurrent ? "ring-2 ring-green-500 ring-offset-2" : ""}`}>
                       {i + 1}
                     </div>
                     {i < statusSteps.length - 2 && (
-                      <div
-                        className={`w-8 sm:w-12 h-0.5 ${
-                          isActive ? "bg-green-500" : "bg-gray-200"
-                        }`}
-                      />
+                      <div className={`w-8 sm:w-12 h-0.5 ${isActive ? "bg-green-500" : "bg-gray-200"}`} />
                     )}
                   </div>
                 );
@@ -245,9 +225,7 @@ export function MenuContent({
             ))}
           </div>
 
-          <p className="text-xs text-muted-foreground">
-            Order #{order.id.slice(-6).toUpperCase()}
-          </p>
+          <p className="text-xs text-muted-foreground">Order #{order.id.slice(-6).toUpperCase()}</p>
         </div>
 
         {order.items.length > 0 && (
@@ -257,14 +235,11 @@ export function MenuContent({
               {order.items.map((i) => (
                 <div key={i.id} className="flex items-center justify-between text-sm gap-2">
                   <span className="flex-1 truncate">
-                    {i.item.name}
-                    {i.variant ? ` (${i.variant.name})` : ""}
+                    {i.item.name}{i.variant ? ` (${i.variant.name})` : ""}
                   </span>
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="text-muted-foreground">×{i.quantity}</span>
-                    <span className="w-14 text-right font-medium tabular-nums">
-                      ₹{(i.unitPrice * i.quantity).toFixed(2)}
-                    </span>
+                    <span className="w-14 text-right font-medium tabular-nums">₹{(i.unitPrice * i.quantity).toFixed(2)}</span>
                   </div>
                 </div>
               ))}
@@ -277,13 +252,15 @@ export function MenuContent({
           </div>
         )}
 
-        <button
-          type="button"
-          className="inline-block px-6 py-2 rounded-lg border border-muted-foreground/30 text-sm active:bg-muted"
-          onClick={startNewOrder}
-        >
-          Place New Order
-        </button>
+        <div className="flex gap-3 justify-center">
+          <button
+            type="button"
+            className="px-6 py-2 rounded-lg border border-muted-foreground/30 text-sm active:bg-muted"
+            onClick={startNewOrder}
+          >
+            Place Another Order
+          </button>
+        </div>
       </main>
     );
   }
@@ -294,6 +271,14 @@ export function MenuContent({
         <div className="text-center">
           <h1 className="text-xl font-bold">{restaurantName}</h1>
           <p className="text-xs text-muted-foreground">Table {tableNumber}</p>
+          {tableStatus === "occupied" && activeOrder && (
+            <p className="text-xs text-amber-600 font-medium mt-1">
+              Table occupied · #{activeOrder.id.slice(-6).toUpperCase()}
+            </p>
+          )}
+          {tableStatus === "vacant" && (
+            <p className="text-xs text-green-600 font-medium mt-1">Table vacant — place your order</p>
+          )}
         </div>
       </div>
 
@@ -302,9 +287,7 @@ export function MenuContent({
           <button
             type="button"
             className={`shrink-0 snap-start text-sm px-3 py-1.5 rounded-full border transition-colors ${
-              categoryFilter === null
-                ? "bg-foreground text-background border-foreground font-medium"
-                : "bg-background border-muted-foreground/30"
+              categoryFilter === null ? "bg-foreground text-background border-foreground font-medium" : "bg-background border-muted-foreground/30"
             }`}
             onClick={() => setCategoryFilter(null)}
           >
@@ -315,9 +298,7 @@ export function MenuContent({
               key={cat.id}
               type="button"
               className={`shrink-0 snap-start text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                categoryFilter === cat.id
-                  ? "bg-foreground text-background border-foreground font-medium"
-                  : "bg-background border-muted-foreground/30"
+                categoryFilter === cat.id ? "bg-foreground text-background border-foreground font-medium" : "bg-background border-muted-foreground/30"
               }`}
               onClick={() => setCategoryFilter(cat.id)}
             >
@@ -337,15 +318,9 @@ export function MenuContent({
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="text-base">{item.name}</CardTitle>
-                      {item.description && (
-                        <p className="text-sm text-muted-foreground mt-1">
-                          {item.description}
-                        </p>
-                      )}
+                      {item.description && <p className="text-sm text-muted-foreground mt-1">{item.description}</p>}
                     </div>
-                    <span className="text-sm font-medium shrink-0 ml-2">
-                      ₹{item.price.toFixed(2)}
-                    </span>
+                    <span className="text-sm font-medium shrink-0 ml-2">₹{item.price.toFixed(2)}</span>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0 space-y-2">
@@ -358,10 +333,7 @@ export function MenuContent({
                           onClick={() =>
                             setSelectedVariants((prev) => ({
                               ...prev,
-                              [item.id]:
-                                prev[item.id] === variant.id
-                                  ? null
-                                  : variant.id,
+                              [item.id]: prev[item.id] === variant.id ? null : variant.id,
                             }))
                           }
                           className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
@@ -371,17 +343,12 @@ export function MenuContent({
                           }`}
                         >
                           {variant.name}
-                          {variant.priceMod > 0 &&
-                            ` +₹${variant.priceMod.toFixed(2)}`}
+                          {variant.priceMod > 0 && ` +₹${variant.priceMod.toFixed(2)}`}
                         </button>
                       ))}
                     </div>
                   )}
-                  <Button
-                    size="sm"
-                    className="w-full"
-                    onClick={() => addToCart(item)}
-                  >
+                  <Button size="sm" className="w-full" onClick={() => addToCart(item)}>
                     Add to Order
                   </Button>
                 </CardContent>
@@ -398,37 +365,21 @@ export function MenuContent({
               {cart.map((c, i) => {
                 const unitPrice = c.item.price + (c.variant?.priceMod || 0);
                 return (
-                  <div
-                    key={i}
-                    className="flex items-center justify-between text-sm gap-2"
-                  >
+                  <div key={i} className="flex items-center justify-between text-sm gap-2">
                     <span className="truncate text-xs flex-1 min-w-0">
-                      {c.item.name}
-                      {c.variant ? ` (${c.variant.name})` : ""}
+                      {c.item.name}{c.variant ? ` (${c.variant.name})` : ""}
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        className="w-7 h-7 rounded-md border text-sm leading-none active:bg-muted"
-                        onClick={() =>
-                          updateQuantity(c.item.id, c.variant?.id || null, -1)
-                        }
-                      >
+                      <button type="button" className="w-7 h-7 rounded-md border text-sm leading-none active:bg-muted"
+                        onClick={() => updateQuantity(c.item.id, c.variant?.id || null, -1)}>
                         −
                       </button>
                       <span className="w-6 text-center text-sm font-medium">{c.quantity}</span>
-                      <button
-                        type="button"
-                        className="w-7 h-7 rounded-md border text-sm leading-none active:bg-muted"
-                        onClick={() =>
-                          updateQuantity(c.item.id, c.variant?.id || null, 1)
-                        }
-                      >
+                      <button type="button" className="w-7 h-7 rounded-md border text-sm leading-none active:bg-muted"
+                        onClick={() => updateQuantity(c.item.id, c.variant?.id || null, 1)}>
                         +
                       </button>
-                      <span className="w-14 text-right text-xs font-medium tabular-nums">
-                        ₹{(unitPrice * c.quantity).toFixed(2)}
-                      </span>
+                      <span className="w-14 text-right text-xs font-medium tabular-nums">₹{(unitPrice * c.quantity).toFixed(2)}</span>
                     </div>
                   </div>
                 );
@@ -437,26 +388,16 @@ export function MenuContent({
 
             {showPhone && (
               <div className="relative mb-2">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none z-10">
-                  +91
-                </span>
-                <Input
-                  type="tel"
-                  placeholder="9876543210"
-                  value={phone}
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none z-10">+91</span>
+                <Input type="tel" placeholder="9876543210" value={phone}
                   onChange={(e) => setPhone(e.target.value.replace(/^(\+?91)?/, "").replace(/\D/g, "").slice(0, 10))}
-                  className="pl-11 h-10 text-sm"
-                />
+                  className="pl-11 h-10 text-sm" />
               </div>
             )}
 
             {showNotes && (
-              <Input
-                placeholder="Special requests..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="mb-2 h-10 text-sm"
-              />
+              <Input placeholder="Special requests..." value={notes}
+                onChange={(e) => setNotes(e.target.value)} className="mb-2 h-10 text-sm" />
             )}
 
             <Separator className="mb-2" />
@@ -465,25 +406,17 @@ export function MenuContent({
               <span className="tabular-nums">₹{total.toFixed(2)}</span>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className="shrink-0 text-xs px-3 py-2 rounded-lg border border-muted-foreground/30 active:bg-muted"
-                onClick={() => setShowNotes(!showNotes)}
-              >
+              <button type="button" className="shrink-0 text-xs px-3 py-2 rounded-lg border border-muted-foreground/30 active:bg-muted"
+                onClick={() => setShowNotes(!showNotes)}>
                 {showNotes ? "Done" : "Note"}
               </button>
-              <button
-                type="button"
+              <button type="button"
                 className="flex-1 py-2.5 rounded-lg bg-foreground text-background font-medium text-sm active:opacity-90 disabled:opacity-50"
-                disabled={placing}
-                onClick={handlePlaceOrder}
-              >
+                disabled={placing} onClick={handlePlaceOrder}>
                 {placing ? "Placing..." : `Place Order (${cartCount})`}
               </button>
             </div>
-            {orderError && (
-              <p className="text-xs text-red-600 mt-1.5">{orderError}</p>
-            )}
+            {orderError && <p className="text-xs text-red-600 mt-1.5">{orderError}</p>}
           </div>
         </div>
       )}

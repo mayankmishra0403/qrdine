@@ -29,7 +29,7 @@ export async function GET(
     total: Number(order.total),
     notes: order.notes,
     createdAt: order.createdAt.toISOString(),
-    table: { id: order.table.id, tableNumber: order.table.tableNumber },
+    table: order.table ? { id: order.table.id, tableNumber: order.table.tableNumber } : null,
     items: order.items.map((i) => ({
       id: i.id,
       quantity: i.quantity,

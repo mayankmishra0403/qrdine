@@ -38,7 +38,7 @@ export async function getCustomers() {
       id: o.id,
       total: Number(o.total),
       status: o.status,
-      tableNumber: o.table.tableNumber,
+      tableNumber: o.table?.tableNumber ?? 0,
       itemCount: o.items.reduce((s, i) => s + i.quantity, 0),
       createdAt: o.createdAt.toISOString(),
     })),

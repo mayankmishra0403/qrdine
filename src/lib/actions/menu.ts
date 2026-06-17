@@ -52,6 +52,32 @@ export async function deleteCategory(id: string) {
     const session = await auth();
     if (!session?.user) throw new Error("Unauthorized");
 
+    const itemsInCategory = await prisma.menuItem.findMany({
+      where: { categoryId: id, restaurantId: session.user.restaurantId },
+      select: { id: true },
+    });
+
+    if (itemsInCategory.length > 0) {
+      const itemIds = itemsInCategory.map((i) => i.id);
+      const ordersUsingItems = await prisma.orderItem.findFirst({
+        where: { itemId: { in: itemIds } },
+      });
+
+      if (ordersUsingItems) {
+        await prisma.menuItem.updateMany({
+          where: { id: { in: itemIds } },
+          data: { isAvailable: false },
+        });
+        throw new Error(
+          `Cannot delete category. Its items are used in existing orders. Items have been hidden from the menu instead.`
+        );
+      }
+
+      await prisma.menuItem.deleteMany({
+        where: { id: { in: itemIds } },
+      });
+    }
+
     await prisma.menuCategory.delete({
       where: { id, restaurantId: session.user.restaurantId },
     });
@@ -124,6 +150,26 @@ export async function deleteItem(id: string) {
   try {
     const session = await auth();
     if (!session?.user) throw new Error("Unauthorized");
+
+    const item = await prisma.menuItem.findUnique({
+      where: { id, restaurantId: session.user.restaurantId },
+      select: { id: true, name: true },
+    });
+    if (!item) throw new Error("Item not found");
+
+    const usedInOrders = await prisma.orderItem.findFirst({
+      where: { itemId: id },
+    });
+
+    if (usedInOrders) {
+      await prisma.menuItem.update({
+        where: { id },
+        data: { isAvailable: false },
+      });
+      throw new Error(
+        `"${item.name}" cannot be deleted — it exists in past orders. It has been hidden from the menu instead.`
+      );
+    }
 
     await prisma.menuItem.delete({
       where: { id, restaurantId: session.user.restaurantId },

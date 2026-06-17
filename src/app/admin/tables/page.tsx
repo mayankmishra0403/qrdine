@@ -1,6 +1,7 @@
 import { getTables } from "@/lib/actions/tables";
 import { AddTableForm } from "./add-table-form";
 import { TableCard } from "./table-card";
+import { PrintAllQR } from "./print-all-qr";
 
 export default async function TablesPage() {
   const tables = await getTables();
@@ -9,7 +10,10 @@ export default async function TablesPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Tables</h1>
-        <AddTableForm />
+        <div className="flex items-center gap-2">
+          <PrintAllQR tables={tables} />
+          <AddTableForm />
+        </div>
       </div>
 
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

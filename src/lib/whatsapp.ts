@@ -1,6 +1,6 @@
 const EVOLUTION_API_URL = process.env.EVOLUTION_API_URL || "http://localhost:8080";
 const API_KEY = process.env.EVOLUTION_API_KEY || "";
-const INSTANCE_NAME = process.env.EVOLUTION_INSTANCE_NAME || "qrdine-instance";
+const INSTANCE_NAME = process.env.EVOLUTION_INSTANCE_NAME || "ritam-bharat-pos";
 
 function headers() {
   return {
@@ -44,13 +44,25 @@ async function apiGet(endpoint: string): Promise<{ success: boolean; data?: Reco
   }
 }
 
+async function apiDelete(endpoint: string): Promise<{ success: boolean; data?: Record<string, unknown>; error?: string }> {
+  try {
+    const res = await fetch(`${EVOLUTION_API_URL}${endpoint}`, {
+      method: "DELETE",
+      headers: headers(),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      return { success: false, error: json.response?.message || json.error || `HTTP ${res.status}` };
+    }
+    return { success: true, data: json };
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : "Request failed" };
+  }
+}
+
 export async function createInstance(
   instanceName: string = INSTANCE_NAME
-): Promise<{
-  success: boolean;
-  qrCode?: string;
-  error?: string;
-}> {
+): Promise<{ success: boolean; qrCode?: string; error?: string }> {
   const result = await apiPost("/instance/create", {
     instanceName,
     integration: "WHATSAPP-BAILEYS",
@@ -81,27 +93,15 @@ export async function createInstanceWithNumber(
   return { success: true };
 }
 
-export async function getQRCode(
-  instanceName: string = INSTANCE_NAME
-): Promise<{ success: boolean; qrCode?: string; error?: string }> {
-  const result = await apiGet(`/instance/connect/${instanceName}`);
-  if (!result.success) {
-    return { success: false, error: result.error };
-  }
-
-  const qr = result.data as { base64?: string } | undefined;
-  return { success: true, qrCode: qr?.base64 };
-}
-
-export async function getPairingCode(
+export async function generatePairingCode(
   instanceName: string,
   phone: string
 ): Promise<{ success: boolean; pairingCode?: string; error?: string }> {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     const result = await apiGet(`/instance/connect/${instanceName}?number=${phone}`);
     if (!result.success) {
-      if (attempt < 4) {
-        await new Promise((r) => setTimeout(r, 1000));
+      if (attempt < 9) {
+        await new Promise((r) => setTimeout(r, 1500));
         continue;
       }
       return { success: false, error: result.error };
@@ -112,12 +112,59 @@ export async function getPairingCode(
       return { success: true, pairingCode: d.pairingCode };
     }
 
-    if (attempt < 4) {
-      await new Promise((r) => setTimeout(r, 1000));
+    if (attempt < 9) {
+      await new Promise((r) => setTimeout(r, 1500));
     }
   }
 
-  return { success: false, error: "Failed to generate pairing code after 5 attempts" };
+  return { success: false, error: "Failed to generate pairing code after 10 attempts" };
+}
+
+export async function connectWithPairingCode(
+  phone: string,
+  instanceName: string = INSTANCE_NAME
+): Promise<{ success: boolean; pairingCode?: string; error?: string }> {
+  const normalized = phone.replace(/[^0-9]/g, "");
+  if (!normalized) {
+    return { success: false, error: "Enter a valid phone number" };
+  }
+
+  const exists = await checkInstanceExists(instanceName);
+  if (exists) {
+    await disconnectInstance(instanceName).catch(() => {});
+    await new Promise((r) => setTimeout(r, 2000));
+    const deleted = await deleteInstance(instanceName);
+    if (!deleted.success) {
+      return { success: false, error: `Failed to clear old instance: ${deleted.error}. Try disconnecting first.` };
+    }
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+
+  const created = await createInstanceWithNumber(instanceName, normalized);
+  if (!created.success) {
+    return { success: false, error: created.error || "Failed to create instance" };
+  }
+
+  await new Promise((r) => setTimeout(r, 2000));
+
+  const code = await generatePairingCode(instanceName, normalized);
+  if (!code.success) {
+    return { success: false, error: code.error || "Failed to generate pairing code" };
+  }
+
+  return { success: true, pairingCode: code.pairingCode };
+}
+
+async function checkInstanceExists(instanceName: string): Promise<boolean> {
+  try {
+    const result = await fetchInstances();
+    if (result.success && result.data) {
+      return result.data.some((i) => i.name === instanceName);
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
 
 export async function getConnectionState(
@@ -144,7 +191,7 @@ export async function disconnectInstance(
 export async function deleteInstance(
   instanceName: string = INSTANCE_NAME
 ): Promise<{ success: boolean; error?: string }> {
-  const result = await apiPost(`/instance/delete/${instanceName}`, {});
+  const result = await apiDelete(`/instance/delete/${instanceName}`);
   return result.success
     ? { success: true }
     : { success: false, error: result.error };

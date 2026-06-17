@@ -1,0 +1,7 @@
+import { NextRequest, NextResponse } from "next/server";
+
+export async function GET(request: NextRequest) {
+  const host = request.headers.get("host") || "localhost:3000";
+  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
+  return NextResponse.json({ url: `${protocol}://${host}` });
+}

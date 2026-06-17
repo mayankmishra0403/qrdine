@@ -1,5 +1,5 @@
 {
-  "name": "qrdine",
+  "name": "ritam-bharat-pos",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -23,6 +23,7 @@
     "@types/qrcode": "^1.5.6",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
+    "ioredis": "^5.4.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.18.0",
     "next": "16.2.9",

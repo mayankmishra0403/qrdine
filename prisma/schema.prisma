@@ -1,5 +1,6 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  binaryTargets   = ["native", "linux-musl-arm64-openssl-3.0.x", "linux-musl-arm64-openssl-1.1.x", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -8,17 +9,21 @@ datasource db {
 }
 
 model Restaurant {
-  id        String   @id @default(cuid())
-  name      String
-  slug      String   @unique
-  logo      String?
-  address   String?
-  phone     String?
-  email     String?
-  timezone  String   @default("UTC")
-  currency  String   @default("USD")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  slug           String   @unique
+  logo           String?
+  address        String?
+  phone          String?
+  email          String?
+  gstin          String?
+  pan            String?
+  timezone       String   @default("UTC")
+  currency       String   @default("INR")
+  taxRate        Decimal  @default(0) @db.Decimal(5, 2)
+  serviceCharge  Decimal  @default(0) @db.Decimal(5, 2)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   users           User[]
   tables          Table[]
@@ -29,6 +34,28 @@ model Restaurant {
   whatsappConfigs WhatsAppConfig[]
   subscriptions   Subscription[]
   campaigns       Campaign[]
+  suppliers       Supplier[]
+  purchaseOrders  PurchaseOrder[]
+  inventoryItems  InventoryItem[]
+  invoices        Invoice[]
+  posSessions     PosSession[]
+  taxSlabs        TaxSlab[]
+  rooms           Room[]
+}
+
+model TaxSlab {
+  id              String   @id @default(cuid())
+  name            String
+  rate            Decimal  @db.Decimal(5, 2)
+  cgstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  sgstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  igstRate        Decimal  @default(0) @db.Decimal(5, 2)
+  isInterState    Boolean  @default(false)
+  isDefault       Boolean  @default(false)
+  restaurantId    String
+  createdAt       DateTime @default(now())
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
 model User {
@@ -36,24 +63,51 @@ model User {
   email        String   @unique
   passwordHash String
   name         String?
-  role         String   @default("admin")
+  role         String   @default("staff")
+  pin          String?
+  isActive     Boolean  @default(true)
   restaurantId String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  assignedOrders  Order[]    @relation("WaiterOrders")
+  posTransactions Payment[]
+  posSessions     PosSession[]
+}
+
+model Room {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  sortOrder    Int      @default(0)
+  restaurantId String
+  createdAt    DateTime @default(now())
+
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  tables     Table[]
 }
 
 model Table {
   id           String   @id @default(cuid())
   tableNumber  Int
+  capacity     Int      @default(4)
+  status       String   @default("vacant")
+  shape        String   @default("circle")
+  posX         Int?
+  posY         Int?
   qrCodeUrl    String?
+  mergedIntoId String?
+  roomId       String?
   restaurantId String
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  room       Room?      @relation(fields: [roomId], references: [id])
   orders     Order[]
+  mergedInto  Table?    @relation("MergedTables", fields: [mergedIntoId], references: [id])
+  mergedTables Table[]  @relation("MergedTables")
 
   @@unique([restaurantId, tableNumber])
 }
@@ -62,6 +116,7 @@ model MenuCategory {
   id           String   @id @default(cuid())
   name         String
   description  String?
+  imageUrl     String?
   sortOrder    Int      @default(0)
   restaurantId String
   createdAt    DateTime @default(now())
@@ -74,22 +129,29 @@ model MenuCategory {
 }
 
 model MenuItem {
-  id           String   @id @default(cuid())
-  name         String
-  description  String?
-  price        Decimal  @db.Decimal(10, 2)
-  imageUrl     String?
-  isAvailable  Boolean  @default(true)
-  sortOrder    Int      @default(0)
-  categoryId   String
-  restaurantId String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id            String    @id @default(cuid())
+  name          String
+  description   String?
+  price         Decimal   @db.Decimal(10, 2)
+  cost          Decimal?  @db.Decimal(10, 2)
+  imageUrl      String?
+  hsnCode       String?
+  isAvailable   Boolean   @default(true)
+  availableQty  Int?
+  prepTimeMins  Int?
+  taxSlabId     String?
+  sortOrder     Int       @default(0)
+  categoryId    String
+  restaurantId  String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
-  category   MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  restaurant Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  variants   MenuItemVariant[]
-  orderItems OrderItem[]
+  category      MenuCategory      @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  restaurant    Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  variants      MenuItemVariant[]
+  addonGroups   AddonGroup[]
+  orderItems    OrderItem[]
+  recipeItems   RecipeItem[]
 }
 
 model MenuItemVariant {
@@ -104,23 +166,57 @@ model MenuItemVariant {
   orderItems OrderItem[]
 }
 
-model Order {
-  id           String   @id @default(cuid())
-  status       String   @default("pending")
-  total        Decimal  @db.Decimal(10, 2)
-  notes        String?
-  customerId   String?
-  tableId      String
-  restaurantId String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+model AddonGroup {
+  id        String   @id @default(cuid())
+  name      String
+  required  Boolean  @default(false)
+  maxSelect Int      @default(1)
+  itemId    String
+  createdAt DateTime @default(now())
 
-  table         Table                 @relation(fields: [tableId], references: [id], onDelete: Cascade)
+  item    MenuItem       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  options AddonOption[]
+}
+
+model AddonOption {
+  id        String   @id @default(cuid())
+  name      String
+  priceMod  Decimal  @default(0) @db.Decimal(10, 2)
+  groupId   String
+  createdAt DateTime @default(now())
+
+  group           AddonGroup      @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  orderItemAddons OrderItemAddon[]
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  status        String   @default("pending")
+  type          String   @default("dine-in")
+  total         Decimal  @db.Decimal(10, 2)
+  subtotal      Decimal  @db.Decimal(10, 2)
+  taxAmount     Decimal  @default(0) @db.Decimal(10, 2)
+  discount      Decimal  @default(0) @db.Decimal(10, 2)
+  discountType  String?
+  serviceCharge Decimal  @default(0) @db.Decimal(10, 2)
+  notes         String?
+  splitGroup    String?
+  customerId    String?
+  tableId       String?
+  waiterId      String?
+  restaurantId  String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  table         Table?                @relation(fields: [tableId], references: [id], onDelete: SetNull)
   restaurant    Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   customer      Customer?             @relation(fields: [customerId], references: [id])
+  waiter        User?                 @relation("WaiterOrders", fields: [waiterId], references: [id])
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
   feedbacks     Feedback[]
+  invoice       Invoice?
+  payments      Payment[]
 }
 
 model OrderItem {
@@ -135,6 +231,17 @@ model OrderItem {
   order   Order            @relation(fields: [orderId], references: [id], onDelete: Cascade)
   item    MenuItem         @relation(fields: [itemId], references: [id])
   variant MenuItemVariant? @relation(fields: [variantId], references: [id])
+  addons  OrderItemAddon[]
+}
+
+model OrderItemAddon {
+  id             String @id @default(cuid())
+  orderItemId    String
+  addonOptionId  String
+  quantity       Int    @default(1)
+
+  orderItem    OrderItem   @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  addonOption  AddonOption @relation(fields: [addonOptionId], references: [id])
 }
 
 model OrderStatusHistory {
@@ -148,18 +255,21 @@ model OrderStatusHistory {
 }
 
 model Customer {
-  id          String    @id @default(cuid())
-  phone       String
-  name        String?
-  totalOrders Int       @default(0)
-  lastVisit   DateTime?
+  id           String    @id @default(cuid())
+  phone        String
+  name         String?
+  gstin        String?
+  gstCategory  String    @default("unregistered")
+  totalOrders  Int       @default(0)
+  lastVisit    DateTime?
   restaurantId String
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orders     Order[]
   feedbacks  Feedback[]
+  invoices   Invoice[]
   loyalty    LoyaltyProgram?
 
   @@unique([restaurantId, phone])
@@ -187,6 +297,149 @@ model LoyaltyProgram {
   updatedAt      DateTime @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  orderId   String
+  amount    Decimal  @db.Decimal(10, 2)
+  method    String
+  reference String?
+  userId    String?
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id])
+}
+
+model Invoice {
+  id            String   @id @default(cuid())
+  invoiceNo     String   @unique
+  orderId       String   @unique
+  subTotal      Decimal  @db.Decimal(10, 2)
+  taxAmount     Decimal  @db.Decimal(10, 2)
+  cgstAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  sgstAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  igstAmount    Decimal  @default(0) @db.Decimal(10, 2)
+  discount      Decimal  @db.Decimal(10, 2)
+  serviceCharge Decimal  @db.Decimal(10, 2)
+  total         Decimal  @db.Decimal(10, 2)
+  amountInWords String?
+  paymentStatus String   @default("pending")
+  notes         String?
+  restaurantId  String
+  customerId    String?
+  createdAt     DateTime @default(now())
+
+  order      Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer   Customer?  @relation(fields: [customerId], references: [id])
+}
+
+model PosSession {
+  id           String    @id @default(cuid())
+  userId       String
+  restaurantId String
+  openingBal   Decimal   @db.Decimal(10, 2)
+  closingBal   Decimal?  @db.Decimal(10, 2)
+  status       String    @default("open")
+  openedAt     DateTime  @default(now())
+  closedAt     DateTime?
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+}
+
+model InventoryItem {
+  id           String   @id @default(cuid())
+  name         String
+  sku          String?
+  category     String?
+  unit         String
+  stockQty     Decimal  @default(0) @db.Decimal(10, 3)
+  minStockQty  Decimal  @default(0) @db.Decimal(10, 3)
+  costPrice    Decimal? @db.Decimal(10, 2)
+  supplierId   String?
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  supplier       Supplier?       @relation(fields: [supplierId], references: [id])
+  recipeItems    RecipeItem[]
+  purchaseItems  PurchaseItem[]
+  stockMovements StockMovement[]
+}
+
+model RecipeItem {
+  id              String  @id @default(cuid())
+  menuItemId      String
+  inventoryItemId String
+  quantity        Decimal @db.Decimal(10, 3)
+  unit            String
+
+  menuItem      MenuItem      @relation(fields: [menuItemId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+}
+
+model StockMovement {
+  id              String   @id @default(cuid())
+  type            String
+  quantity        Decimal  @db.Decimal(10, 3)
+  previousStock   Decimal  @db.Decimal(10, 3)
+  newStock        Decimal  @db.Decimal(10, 3)
+  reference       String?
+  notes           String?
+  inventoryItemId String
+  createdAt       DateTime @default(now())
+
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+
+  @@index([inventoryItemId, createdAt])
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  contactPerson String?
+  phone         String?
+  email         String?
+  address       String?
+  restaurantId  String
+  createdAt     DateTime @default(now())
+
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  inventoryItems InventoryItem[]
+  purchaseOrders PurchaseOrder[]
+}
+
+model PurchaseOrder {
+  id          String    @id @default(cuid())
+  poNumber    String    @unique
+  supplierId  String
+  status      String    @default("draft")
+  totalAmount Decimal   @db.Decimal(10, 2)
+  notes       String?
+  restaurantId String
+  orderedAt   DateTime?
+  receivedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  restaurant    Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  supplier      Supplier      @relation(fields: [supplierId], references: [id])
+  purchaseItems PurchaseItem[]
+}
+
+model PurchaseItem {
+  id              String  @id @default(cuid())
+  purchaseOrderId String
+  inventoryItemId String
+  quantity        Decimal @db.Decimal(10, 3)
+  unitCost        Decimal @db.Decimal(10, 2)
+  totalCost       Decimal @db.Decimal(10, 2)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
 }
 
 model WhatsAppConfig {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { updateOrderStatus } from "@/lib/actions/orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ type Order = {
   items: OrderItem[];
 };
 
+type OrderWithTimer = Order & { elapsed: number; isUrgent: boolean };
+
 const statusFlow: Record<string, string[]> = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["preparing", "cancelled"],
@@ -33,22 +35,12 @@ const statusFlow: Record<string, string[]> = {
   ready: ["served"],
 };
 
-const statusLabels: Record<string, string> = {
-  pending: "New",
-  confirmed: "Confirm",
-  preparing: "Prepare",
-  ready: "Ready",
+const actionLabels: Record<string, string> = {
+  confirmed: "Accept",
+  preparing: "Start Prep",
+  ready: "Mark Ready",
   served: "Served",
   cancelled: "Cancel",
-};
-
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-500",
-  confirmed: "bg-blue-500",
-  preparing: "bg-purple-500",
-  ready: "bg-green-500",
-  served: "bg-gray-400",
-  cancelled: "bg-red-500",
 };
 
 const statusGroupLabels: Record<string, string> = {
@@ -58,22 +50,53 @@ const statusGroupLabels: Record<string, string> = {
   ready: "Ready to Serve",
 };
 
+const statusGroupIcons: Record<string, string> = {
+  pending: "🆕",
+  confirmed: "✅",
+  preparing: "👨‍🍳",
+  ready: "🍽️",
+};
+
 const statusGroups = ["pending", "confirmed", "preparing", "ready"];
+
+const URGENT_THRESHOLD_MS = 15 * 60 * 1000;
+const WARNING_THRESHOLD_MS = 10 * 60 * 1000;
+
+function playNewOrderSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch {}
+}
 
 export function KitchenDashboard() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
+  const [fullscreen, setFullscreen] = useState(false);
+  const prevOrderCount = useRef(0);
 
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/orders/active");
       if (res.ok) {
-        const data = await res.json();
+        const data: Order[] = await res.json();
+        if (data.length > prevOrderCount.current) {
+          playNewOrderSound();
+        }
+        prevOrderCount.current = data.length;
         setOrders(data);
       }
     } catch {
-      // silent
     } finally {
       setLoading(false);
     }
@@ -82,35 +105,58 @@ export function KitchenDashboard() {
   useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 5000);
-    const timer = setInterval(() => setNow(Date.now()), 30000);
+    const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => {
       clearInterval(interval);
       clearInterval(timer);
     };
   }, [fetchOrders]);
 
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "f" || e.key === "F") setFullscreen((p) => !p);
+    };
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
+
   async function handleStatus(orderId: string, status: string) {
     const result = await updateOrderStatus(orderId, status);
     if (result.success) {
-      toast.success(`Order ${statusLabels[status]}d`);
+      toast.success(`Order ${status}`);
       await fetchOrders();
     } else {
       toast.error(result.error);
     }
   }
 
-  function timeAgo(createdAt: string) {
-    const diff = now - new Date(createdAt).getTime();
-    const mins = Math.floor(diff / 60000);
-    if (mins < 1) return "just now";
-    if (mins < 60) return `${mins}m ago`;
-    const hours = Math.floor(mins / 60);
-    return `${hours}h ${mins % 60}m`;
+  function formatElapsed(ms: number) {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   }
+
+  function getTimeStyle(elapsed: number, isUrgent: boolean): string {
+    if (isUrgent) return "text-red-600 font-bold animate-pulse";
+    if (elapsed > WARNING_THRESHOLD_MS) return "text-amber-600 font-semibold";
+    return "text-muted-foreground";
+  }
+
+  function getCardBorder(status: string, elapsed: number, isUrgent: boolean): string {
+    if (isUrgent && (status === "preparing" || status === "confirmed")) return "border-red-400 ring-2 ring-red-200";
+    if (elapsed > WARNING_THRESHOLD_MS && status === "preparing") return "border-amber-400";
+    return "border";
+  }
+
+  const ordersWithTimers: OrderWithTimer[] = orders.map((o) => {
+    const elapsed = now - new Date(o.createdAt).getTime();
+    const isUrgent = elapsed > URGENT_THRESHOLD_MS && o.status !== "ready";
+    return { ...o, elapsed, isUrgent };
+  });
 
   if (loading) {
     return (
-      <div className="text-center py-20 text-muted-foreground animate-pulse">
+      <div className="flex items-center justify-center min-h-screen text-muted-foreground animate-pulse text-xl">
         Loading orders...
       </div>
     );
@@ -118,70 +164,81 @@ export function KitchenDashboard() {
 
   if (orders.length === 0) {
     return (
-      <div className="text-center py-20">
-        <p className="text-3xl text-muted-foreground">No active orders</p>
-        <p className="text-sm text-muted-foreground mt-2">
-          Waiting for customers to place orders...
-        </p>
-        <Button variant="outline" size="sm" className="mt-4" onClick={fetchOrders}>
+      <div className="flex flex-col items-center justify-center min-h-screen gap-4">
+        <p className="text-6xl">🍽️</p>
+        <p className="text-2xl text-muted-foreground">No active orders</p>
+        <p className="text-sm text-muted-foreground">Waiting for customers...</p>
+        <Button variant="outline" size="sm" onClick={fetchOrders}>
           Refresh
         </Button>
       </div>
     );
   }
 
+  const pendingCount = orders.filter((o) => o.status === "pending").length;
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Kitchen Display</h1>
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <span>{orders.length} active orders</span>
-          <Button variant="outline" size="sm" onClick={fetchOrders}>
+    <div className={`${fullscreen ? "fixed inset-0 z-50 bg-white overflow-auto p-4" : "space-y-4 p-4"}`}>
+      <div className="flex items-center justify-between sticky top-0 bg-white z-10 pb-2">
+        <div className="flex items-center gap-3">
+          <h1 className="text-xl font-bold">Kitchen Display</h1>
+          {pendingCount > 0 && (
+            <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full animate-pulse">
+              {pendingCount} new
+            </span>
+          )}
+          <span className="text-xs text-muted-foreground">{orders.length} active</span>
+        </div>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <span>Press <kbd className="px-1 py-0.5 border rounded text-[10px]">F</kbd> fullscreen</span>
+          <Button variant="outline" size="sm" className="text-xs h-7" onClick={fetchOrders}>
             Refresh
           </Button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
         {statusGroups.map((status) => {
-          const groupOrders = orders.filter((o) => o.status === status);
+          const groupOrders = ordersWithTimers.filter((o) => o.status === status);
           return (
-            <div key={status} className="space-y-3">
-              <div className="flex items-center gap-2 sticky top-0 bg-gray-50 pb-1 z-10">
-                <div
-                  className={`w-3 h-3 rounded-full ${statusColors[status]}`}
-                />
-                <h2 className="font-semibold">{statusGroupLabels[status]}</h2>
-                <Badge variant="secondary">{groupOrders.length}</Badge>
+            <div key={status} className="space-y-2">
+              <div className="flex items-center gap-2 sticky top-10 bg-white pb-1 z-10 border-b">
+                <span className="text-lg">{statusGroupIcons[status]}</span>
+                <h2 className="font-semibold text-sm">{statusGroupLabels[status]}</h2>
+                {groupOrders.length > 0 && (
+                  <Badge variant="secondary" className="text-[10px]">{groupOrders.length}</Badge>
+                )}
               </div>
 
               {groupOrders.length === 0 && (
-                <p className="text-sm text-muted-foreground py-4 text-center italic">
-                  None
-                </p>
+                <p className="text-xs text-muted-foreground py-4 text-center italic">None</p>
               )}
 
               {groupOrders.map((order) => (
                 <div
                   key={order.id}
-                  className="rounded-lg border bg-white p-4 shadow-sm space-y-3"
+                  className={`rounded-lg bg-white p-3 shadow-sm space-y-2 ${getCardBorder(order.status, order.elapsed, order.isUrgent)} ${order.isUrgent ? "bg-red-50" : ""}`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-bold">
-                      Table {order.table.tableNumber}
+                    <span className="text-base font-bold">
+                      Table {order.table?.tableNumber ?? "?"}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {timeAgo(order.createdAt)}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {order.isUrgent && <span className="text-lg">🔴</span>}
+                      <span className={`text-xs font-mono tabular-nums ${getTimeStyle(order.elapsed, order.isUrgent)}`}>
+                        {formatElapsed(order.elapsed)}
+                      </span>
+                    </div>
                   </div>
+
                   {order.customer && (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-[10px] text-muted-foreground">
                       📞 {order.customer.phone}
                       {order.customer.name ? ` - ${order.customer.name}` : ""}
                     </p>
                   )}
 
-                  <div className="space-y-1 text-sm">
+                  <div className="space-y-0.5 text-xs">
                     {order.items.map((item) => (
                       <div key={item.id} className="flex justify-between">
                         <span>
@@ -193,27 +250,25 @@ export function KitchenDashboard() {
                   </div>
 
                   {order.notes && (
-                    <p className="text-xs text-muted-foreground italic bg-muted p-2 rounded">
+                    <p className="text-[10px] text-muted-foreground italic bg-muted/50 p-1.5 rounded">
                       &ldquo;{order.notes}&rdquo;
                     </p>
                   )}
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-1.5 pt-1">
                     {statusFlow[order.status]?.map((nextStatus) => (
                       <Button
                         key={nextStatus}
                         size="sm"
-                        variant={
-                          nextStatus === "cancelled" ? "outline" : "default"
-                        }
-                        className={
-                          nextStatus === "cancelled"
-                            ? "text-red-600 border-red-300"
-                            : ""
-                        }
+                        className={`text-xs h-7 flex-1 ${
+                          nextStatus === "cancelled" ? "text-red-600 border-red-300 bg-white border" :
+                          nextStatus === "ready" ? "bg-green-600 hover:bg-green-700 text-white" :
+                          nextStatus === "preparing" ? "bg-purple-600 hover:bg-purple-700 text-white" :
+                          ""
+                        }`}
                         onClick={() => handleStatus(order.id, nextStatus)}
                       >
-                        {statusLabels[nextStatus]}
+                        {actionLabels[nextStatus]}
                       </Button>
                     ))}
                   </div>

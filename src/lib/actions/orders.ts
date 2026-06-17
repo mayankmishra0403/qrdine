@@ -29,10 +29,14 @@ export async function placeOrder(
 
     const table = await prisma.table.findUnique({
       where: { id: parsed.data.tableId },
-      include: { restaurant: true },
+      include: { restaurant: true, mergedInto: true },
     });
 
     if (!table) throw new Error("Table not found");
+    if (table.status === "merged") throw new Error("This table has been merged. Please use the main table.");
+    if (table.status === "occupied") {
+      throw new Error("Table is currently occupied. An order is already in progress.");
+    }
 
     const total = parsed.data.items.reduce(
       (sum, item) => sum + item.unitPrice * item.quantity,
@@ -66,6 +70,7 @@ export async function placeOrder(
       const created = await tx.order.create({
         data: {
           status: "pending",
+          subtotal: total,
           total,
           notes: parsed.data.notes,
           tableId: table.id,
@@ -91,6 +96,12 @@ export async function placeOrder(
           table: true,
         },
       });
+
+      await tx.table.update({
+        where: { id: table.id },
+        data: { status: "occupied" },
+      });
+
       return created;
     });
 
@@ -178,7 +189,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
     if (await isWhatsAppConfigured() && order.customer?.phone) {
       const shortId = order.id.slice(-6).toUpperCase();
       const restaurantName = order.restaurant.name;
-      const tableNum = order.table.tableNumber;
+      const tableNum = order.table?.tableNumber ?? 0;
       let msg = "";
 
       switch (status) {
