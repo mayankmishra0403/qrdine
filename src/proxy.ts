@@ -20,7 +20,7 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
-  if (path.startsWith("/bill") && !sessionCookie) {
+  if (path.startsWith("/admin/bill") && !sessionCookie) {
     return NextResponse.redirect(new URL("/admin/login", request.url));
   }
 
