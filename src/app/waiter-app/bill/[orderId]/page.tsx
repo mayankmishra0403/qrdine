@@ -88,15 +88,24 @@ export default function BillView() {
         @page { size: 80mm 297mm; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: white !important; margin: 0 !important; padding: 0 !important; }
-        .bill-container { width: 72mm; margin: 0 auto; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; color: #000; }
-        @media print { .bill-container { width: 72mm; } }
-        .bill-divider { border-top: 1px dashed #000; margin: 4px 0; }
-        .bill-table { width: 100%; border-collapse: collapse; font-size: 9px; }
-        .bill-table th { border-bottom: 1px solid #000; padding: 2px 1px; }
-        .bill-table td { padding: 2px 1px; }
-        .bill-totals { margin: 4px 0; font-size: 9px; }
-        .bill-total-row { display: flex; justify-content: space-between; padding: 1px 0; }
-        .bill-grand-total { font-size: 12px; font-weight: bold; border-top: 2px solid #000; padding-top: 3px; }
+        .bill-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
+        @media print { .bill-container { width: 72mm; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; } }
+        .bill-divider { border-top: 1px solid #ccc; margin: 12px 0; }
+        .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .bill-table th { border-bottom: 2px solid #000; padding: 8px 4px; }
+        .bill-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+        .bill-totals { margin: 12px 0; font-size: 13px; }
+        .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; }
+        .bill-grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 6px; }
+        @media print {
+          .bill-divider { border-top: 1px dashed #000; margin: 4px 0; }
+          .bill-table { font-size: 9px; }
+          .bill-table th { border-bottom: 1px solid #000; padding: 2px 1px; }
+          .bill-table td { padding: 2px 1px; }
+          .bill-totals { margin: 4px 0; font-size: 9px; }
+          .bill-total-row { padding: 1px 0; }
+          .bill-grand-total { font-size: 12px; border-top: 2px solid #000; padding-top: 3px; }
+        }
       `}</style>
     </>
   );

@@ -205,40 +205,71 @@ export function BillContent({ data }: { data: Record<string, unknown> }) {
         nav, header, footer, .md\\:hidden, .md\\:flex, [class*="fixed"], .min-h-screen.bg-background > *:not(main) { display: none !important; }
         .min-h-screen.bg-background { display: block !important; background: white !important; min-height: auto !important; }
         .min-h-screen.bg-background main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; min-height: auto !important; }
-        .bill-container { width: 72mm; margin: 0 auto; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; color: #000; }
-        @media print { .bill-container { width: 72mm; } }
-        .bill-header { text-align: center; margin-bottom: 6px; }
-        .bill-restaurant-name { font-size: 16px; font-weight: bold; margin: 0 0 2px; text-transform: uppercase; letter-spacing: 1px; }
-        .bill-address { font-size: 9px; color: #333; margin: 1px 0; }
-        .bill-info { font-size: 9px; color: #333; margin: 1px 0; }
-        .bill-gst-row { font-size: 8px; color: #555; display: flex; justify-content: center; gap: 12px; margin-top: 2px; }
-        .bill-divider { border-top: 1px dashed #000; margin: 5px 0; }
-        .bill-meta { display: flex; justify-content: space-between; font-size: 9px; }
-        .bill-meta p { margin: 1px 0; }
-        .bill-table { width: 100%; border-collapse: collapse; font-size: 9px; }
-        .bill-table th { border-bottom: 1px solid #000; padding: 3px 1px; text-align: left; font-weight: bold; }
-        .bill-table td { padding: 2px 1px; border-bottom: 1px dotted #aaa; }
-        .bill-table-sm th { font-size: 8px; }
-        .bill-table-sm td { font-size: 8px; }
-        .col-sr { width: 20px; text-align: center; }
+        .bill-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
+        @media print { .bill-container { width: 72mm; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; } }
+        .bill-header { text-align: center; margin-bottom: 16px; }
+        .bill-restaurant-name { font-size: 24px; font-weight: bold; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 1px; }
+        .bill-address { font-size: 13px; color: #555; margin: 2px 0; }
+        .bill-info { font-size: 13px; color: #555; margin: 2px 0; }
+        .bill-gst-row { font-size: 12px; color: #666; display: flex; justify-content: center; gap: 16px; margin-top: 4px; }
+        .bill-divider { border-top: 1px solid #ccc; margin: 12px 0; }
+        .bill-meta { display: flex; justify-content: space-between; font-size: 13px; }
+        .bill-meta p { margin: 2px 0; }
+        .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .bill-table th { border-bottom: 2px solid #000; padding: 8px 4px; text-align: left; font-weight: bold; }
+        .bill-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
+        .bill-table-sm th { font-size: 12px; }
+        .bill-table-sm td { font-size: 12px; }
+        .col-sr { width: 40px; text-align: center; }
         .col-item { text-align: left; }
-        .col-hsn { width: 60px; text-align: center; font-size: 8px; }
-        .col-qty { width: 30px; text-align: center; }
-        .col-rate { width: 50px; text-align: right; }
-        .col-amount { width: 60px; text-align: right; font-weight: bold; }
-        .bill-totals { margin: 5px 0; font-size: 9px; }
-        .bill-total-row { display: flex; justify-content: space-between; padding: 1px 0; }
+        .col-hsn { width: 100px; text-align: center; }
+        .col-qty { width: 60px; text-align: center; }
+        .col-rate { width: 100px; text-align: right; }
+        .col-amount { width: 120px; text-align: right; font-weight: bold; }
+        .bill-totals { margin: 12px 0; font-size: 13px; }
+        .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; }
         .bill-discount { color: #d32f2f; }
-        .bill-grand-total { font-size: 12px; font-weight: bold; border-top: 2px solid #000; padding-top: 3px; }
-        .bill-words { margin: 5px 0; font-size: 9px; }
-        .bill-words-text { font-style: italic; color: #333; margin: 1px 0; }
-        .bill-payment { margin: 5px 0; font-size: 9px; }
-        .bill-section-title { font-weight: bold; font-size: 9px; margin: 2px 0; }
-        .bill-footer { text-align: center; margin-top: 10px; }
-        .bill-thanks { font-size: 10px; font-weight: bold; margin: 5px 0; }
-        .bill-customer-gst { font-size: 8px; color: #555; }
-        .bill-powered { font-size: 7px; color: #777; margin: 1px 0; }
-        .bill-hsn-summary { margin: 5px 0; }
+        .bill-grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 6px; margin-top: 4px; }
+        .bill-words { margin: 12px 0; font-size: 13px; }
+        .bill-words-text { font-style: italic; color: #555; }
+        .bill-payment { margin: 12px 0; font-size: 13px; }
+        .bill-section-title { font-weight: bold; font-size: 14px; margin: 4px 0; }
+        .bill-footer { text-align: center; margin-top: 24px; }
+        .bill-thanks { font-size: 16px; font-weight: bold; margin: 8px 0; }
+        .bill-customer-gst { font-size: 12px; color: #666; }
+        .bill-powered { font-size: 11px; color: #999; margin: 2px 0; }
+        .bill-hsn-summary { margin: 12px 0; }
+        @media print {
+          nav, header, footer, .md\\:hidden, .md\\:flex, [class*="fixed"], .min-h-screen.bg-background > *:not(main) { display: none !important; }
+          .min-h-screen.bg-background { display: block !important; background: white !important; min-height: auto !important; }
+          .min-h-screen.bg-background main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; min-height: auto !important; }
+          .bill-restaurant-name { font-size: 16px; margin: 0 0 2px; }
+          .bill-address, .bill-info { font-size: 9px; }
+          .bill-gst-row { font-size: 8px; gap: 12px; margin-top: 2px; }
+          .bill-divider { border-top: 1px dashed #000; margin: 5px 0; }
+          .bill-meta { font-size: 9px; }
+          .bill-meta p { margin: 1px 0; }
+          .bill-table { font-size: 9px; }
+          .bill-table th { border-bottom: 1px solid #000; padding: 3px 1px; }
+          .bill-table td { padding: 2px 1px; border-bottom: 1px dotted #aaa; }
+          .bill-table-sm th, .bill-table-sm td { font-size: 8px; }
+          .col-sr { width: 20px; }
+          .col-hsn { width: 60px; font-size: 8px; }
+          .col-qty { width: 30px; }
+          .col-rate { width: 50px; }
+          .col-amount { width: 60px; }
+          .bill-totals { margin: 5px 0; font-size: 9px; }
+          .bill-total-row { padding: 1px 0; }
+          .bill-grand-total { font-size: 12px; border-top: 2px solid #000; padding-top: 3px; }
+          .bill-words { margin: 5px 0; font-size: 9px; }
+          .bill-payment { margin: 5px 0; font-size: 9px; }
+          .bill-section-title { font-size: 9px; margin: 2px 0; }
+          .bill-footer { margin-top: 10px; }
+          .bill-thanks { font-size: 10px; margin: 5px 0; }
+          .bill-customer-gst { font-size: 8px; }
+          .bill-powered { font-size: 7px; }
+          .bill-hsn-summary { margin: 5px 0; }
+        }
       `}</style>
     </>
   );
