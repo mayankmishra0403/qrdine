@@ -75,7 +75,6 @@ services:
       EVOLUTION_API_KEY: ${EVOLUTION_API_KEY}
       EVOLUTION_INSTANCE_NAME: ${EVOLUTION_INSTANCE_NAME}
       PRISMA_CLIENT_ENGINE_TYPE: "library"
-      PRISMA_QUERY_ENGINE_LIBRARY: "/app/node_modules/.prisma/client/libquery_engine-linux-musl-arm64-openssl-3.0.x.so.node"
       NODE_ENV: production
     depends_on:
       postgres:
