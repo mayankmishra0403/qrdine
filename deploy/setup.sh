@@ -8,9 +8,8 @@ REPO_URL="https://github.com/mayankmishra0403/qrdine.git"
 REPO_DIR="/opt/ritambharat-pos"
 
 echo "╔═══════════════════════════════════════════════════╗"
-echo "║     🚀 Ritam Bharat POS — Deploy                  ║"
+echo "║     🚀 Ritam Bharat POS — Deploy                 ║"
 echo "╚═══════════════════════════════════════════════════╝"
-echo ""
 
 # ── 1. Docker ──
 if ! command -v docker &>/dev/null; then
@@ -43,14 +42,103 @@ TUNNEL_URL="https://${DOMAIN}"
 EOF
 echo -e "${GREEN}[3/5] Environment created${NC}"
 
-# ── 4. Start Services ──
-echo -e "${YELLOW}[4/5] Starting services...${NC}"
-cd "$REPO_DIR" && docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -1
+# ── 4. Build & Start Services ──
+echo -e "${YELLOW}[4/5] Building and starting services...${NC}"
+cd "$REPO_DIR"
+docker compose -f docker/docker-compose.yml up -d --build 2>&1 | tail -5
+
+# Wait for postgres
+echo "Waiting for PostgreSQL..."
+for i in $(seq 1 30); do
+  if docker compose -f docker/docker-compose.yml exec -T postgres pg_isready -U qrdine &>/dev/null; then
+    echo "PostgreSQL ready"
+    break
+  fi
+  sleep 2
+done
+
+# Wait for app container to start
+echo "Waiting for app container..."
+sleep 10
+for i in $(seq 1 30); do
+  if docker compose -f docker/docker-compose.yml ps app --format json 2>/dev/null | grep -q '"State":"running"'; then
+    echo "App container ready"
+    break
+  fi
+  sleep 2
+done
+
+# Wait for migrations (app runs them on startup), then seed
+echo "Waiting for migrations to complete..."
+sleep 15
+
+# ── Seed Database ──
+echo "Seeding database..."
+docker compose -f docker/docker-compose.yml exec -T app node -e "
+const { PrismaClient } = require('@prisma/client');
+const bcrypt = require('bcryptjs');
+const p = new PrismaClient();
+(async()=>{
+  const existing = await p.restaurant.findFirst();
+  if (existing) { console.log('Already seeded'); return; }
+  const rest = await p.restaurant.create({
+    data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!' }
+  });
+  const hash = await bcrypt.hash('Admin@2006', 10);
+  await p.user.createMany({ data: [
+    { email: 'admin@rb.com', passwordHash: hash, name: 'Admin', role: 'owner', pin: '2006', restaurantId: rest.id },
+    { email: 'cashier@rb.com', passwordHash: hash, name: 'Cashier', role: 'cashier', pin: '5678', restaurantId: rest.id },
+    { email: 'kitchen@rb.com', passwordHash: hash, name: 'Kitchen Staff', role: 'kitchen', pin: '9012', restaurantId: rest.id },
+    { email: 'waiter@rb.com', passwordHash: hash, name: 'Waiter', role: 'waiter', pin: '3456', restaurantId: rest.id }
+  ]});
+  for (let i = 1; i <= 5; i++) { await p.table.create({ data: { tableNumber: i, capacity: [2,4,4,6,2][i-1], restaurantId: rest.id } }); }
+  const slabs = [
+    { name: 'GST 5%', rate: 5, cgstRate: 2.5, sgstRate: 2.5, igstRate: 5 },
+    { name: 'GST 12%', rate: 12, cgstRate: 6, sgstRate: 6, igstRate: 12 },
+    { name: 'GST 18%', rate: 18, cgstRate: 9, sgstRate: 9, igstRate: 18, isDefault: true },
+    { name: 'GST 28%', rate: 28, cgstRate: 14, sgstRate: 14, igstRate: 28 },
+    { name: 'No GST', rate: 0, cgstRate: 0, sgstRate: 0, igstRate: 0 }
+  ];
+  for (const s of slabs) { await p.taxSlab.create({ data: { ...s, restaurantId: rest.id } }); }
+  await p.whatsAppConfig.create({ data: { restaurantId: rest.id, isConnected: false } });
+  console.log('SEEDED');
+  const { MenuCategory, MenuItem, InventoryItem, Supplier, RecipeItem } = p;
+  const mc = await MenuCategory.create({ data: { name: 'Main Course', sortOrder: 1, restaurantId: rest.id } });
+  const bev = await MenuCategory.create({ data: { name: 'Beverages', sortOrder: 2, restaurantId: rest.id } });
+  const des = await MenuCategory.create({ data: { name: 'Desserts', sortOrder: 3, restaurantId: rest.id } });
+  const st = await MenuCategory.create({ data: { name: 'Starters', sortOrder: 0, restaurantId: rest.id } });
+  const burger = await MenuItem.create({ data: { name: 'Classic Burger', description: 'Beef patty with lettuce, tomato, and special sauce', price: 299, cost: 150, prepTimeMins: 12, categoryId: mc.id, restaurantId: rest.id } });
+  const pasta = await MenuItem.create({ data: { name: 'Pasta Carbonara', description: 'Creamy pasta with bacon and parmesan', price: 349, cost: 180, prepTimeMins: 15, categoryId: mc.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Grilled Chicken Salad', description: 'Fresh greens with grilled chicken and vinaigrette', price: 249, cost: 120, prepTimeMins: 10, categoryId: mc.id, restaurantId: rest.id } });
+  const fries = await MenuItem.create({ data: { name: 'French Fries', description: 'Crispy golden fries with dip', price: 149, cost: 40, prepTimeMins: 8, categoryId: st.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Soda', description: 'Choose from Coke, Sprite, Fanta', price: 49, cost: 15, categoryId: bev.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Iced Tea', description: 'Fresh brewed iced tea', price: 69, cost: 10, categoryId: bev.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Coffee', description: 'Fresh brewed coffee', price: 79, cost: 15, categoryId: bev.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Tiramisu', description: 'Classic Italian dessert', price: 199, cost: 80, prepTimeMins: 5, categoryId: des.id, restaurantId: rest.id } });
+  await MenuItem.create({ data: { name: 'Cheesecake', description: 'New York style cheesecake', price: 179, cost: 70, prepTimeMins: 3, categoryId: des.id, restaurantId: rest.id } });
+  const sup1 = await Supplier.create({ data: { name: 'Fresh Meats Co.', contactPerson: 'Rajesh', phone: '+919876543210', email: 'rajesh@freshmeats.com', restaurantId: rest.id } });
+  const sup2 = await Supplier.create({ data: { name: 'Green Valley Farms', contactPerson: 'Priya', phone: '+919876543211', restaurantId: rest.id } });
+  const chk = await InventoryItem.create({ data: { name: 'Chicken Breast', sku: 'CHK-001', category: 'meat', unit: 'kg', stockQty: 10, minStockQty: 2, costPrice: 250, supplierId: sup1.id, restaurantId: rest.id } });
+  const cream = await InventoryItem.create({ data: { name: 'Cooking Cream', sku: 'CRM-001', category: 'dairy', unit: 'l', stockQty: 5, minStockQty: 1, costPrice: 180, supplierId: sup2.id, restaurantId: rest.id } });
+  const pastaItem = await InventoryItem.create({ data: { name: 'Pasta', sku: 'PAS-001', category: 'dry', unit: 'kg', stockQty: 8, minStockQty: 2, costPrice: 80, supplierId: sup2.id, restaurantId: rest.id } });
+  const cheese = await InventoryItem.create({ data: { name: 'Cheddar Cheese', sku: 'CHS-001', category: 'dairy', unit: 'kg', stockQty: 3, minStockQty: 0.5, costPrice: 400, supplierId: sup2.id, restaurantId: rest.id } });
+  const potato = await InventoryItem.create({ data: { name: 'Potatoes', sku: 'POT-001', category: 'produce', unit: 'kg', stockQty: 15, minStockQty: 3, costPrice: 30, supplierId: sup2.id, restaurantId: rest.id } });
+  await RecipeItem.createMany({ data: [
+    { menuItemId: pasta.id, inventoryItemId: pastaItem.id, quantity: 0.2, unit: 'kg' },
+    { menuItemId: pasta.id, inventoryItemId: cream.id, quantity: 0.1, unit: 'l' },
+    { menuItemId: pasta.id, inventoryItemId: cheese.id, quantity: 0.05, unit: 'kg' },
+    { menuItemId: fries.id, inventoryItemId: potato.id, quantity: 0.3, unit: 'kg' }
+  ]});
+  console.log('Demo data created');
+  process.exit(0);
+})().catch(e => { console.error(e.message); process.exit(0); });
+" 2>&1
+
 echo -e "${GREEN}[4/5] Services started${NC}"
 
 # ── 5. Nginx Reverse Proxy ──
 echo -e "${YELLOW}[5/5] Setting up Nginx for ${DOMAIN}...${NC}"
-sudo apt-get install -y -qq nginx 2>/dev/null || true
+sudo apt-get update -qq && sudo apt-get install -y -qq nginx 2>/dev/null || true
 
 sudo tee /etc/nginx/sites-enabled/ritam-bharat > /dev/null << 'NGINX'
 server {
@@ -72,65 +160,13 @@ server {
 }
 NGINX
 sudo rm -f /etc/nginx/sites-enabled/default
-sudo nginx -t && sudo systemctl restart nginx
+sudo nginx -t 2>/dev/null && sudo systemctl restart nginx 2>/dev/null || true
 echo -e "${GREEN}[5/5] Nginx configured${NC}"
 
-# ── Database Init ──
-echo "Waiting for database..."; sleep 20
-cd "$REPO_DIR"
-docker compose -f docker/docker-compose.yml exec -T postgres sh -c 'psql -U qrdine -d qrdine' << 'SQL' 2>/dev/null || true
-ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS gstin TEXT;
-ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS pan TEXT;
-ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "billFooter" TEXT DEFAULT 'Thank you! Visit again!';
-ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS gstin TEXT;
-ALTER TABLE "Customer" ADD COLUMN IF NOT EXISTS "gstCategory" TEXT DEFAULT 'unregistered';
-ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "hsnCode" TEXT;
-ALTER TABLE "MenuItem" ADD COLUMN IF NOT EXISTS "taxSlabId" TEXT;
-ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "cgstAmount" DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "sgstAmount" DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "igstAmount" DECIMAL(10,2) DEFAULT 0;
-ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "amountInWords" TEXT;
-ALTER TABLE "Invoice" ADD COLUMN IF NOT EXISTS "customerId" TEXT;
-ALTER TABLE "Order" ALTER COLUMN "tableId" DROP NOT NULL;
-SQL
-
-docker compose -f docker/docker-compose.yml exec -T app sh -c '
-  cat > /tmp/seed.mjs << "ENDSCRIPT"
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
-const p = new PrismaClient();
-try {
-  const existing = await p.restaurant.findFirst();
-  if (existing) { console.log("ALREADY_SEEDED"); process.exit(0); }
-  const rest = await p.restaurant.create({
-    data: { name: "Ritam Bharat", slug: "ritam-bharat", address: "Your Restaurant Address", phone: "+919999999999", email: "hello@ritambharat.software", currency: "INR", gstin: "22AAAAA0000A1Z5", pan: "AAAAA0000A" }
-  });
-  const hash = await bcrypt.hash("Admin@2006", 10);
-  await p.user.createMany({ data: [
-    { email: "admin@rb.com", passwordHash: hash, name: "Admin", role: "owner", pin: "2006", restaurantId: rest.id },
-    { email: "cashier@rb.com", passwordHash: hash, name: "Cashier", role: "cashier", pin: "5678", restaurantId: rest.id },
-    { email: "kitchen@rb.com", passwordHash: hash, name: "Kitchen Staff", role: "kitchen", pin: "9012", restaurantId: rest.id },
-    { email: "waiter@rb.com", passwordHash: hash, name: "Waiter", role: "waiter", pin: "3456", restaurantId: rest.id },
-  ]});
-  for (let i = 1; i <= 5; i++) { await p.table.create({ data: { tableNumber: i, capacity: [2,4,4,6,2][i-1], restaurantId: rest.id } }); }
-  const slabs = [
-    { name: "GST 5%", rate: 5, cgstRate: 2.5, sgstRate: 2.5, igstRate: 5 },
-    { name: "GST 12%", rate: 12, cgstRate: 6, sgstRate: 6, igstRate: 12 },
-    { name: "GST 18%", rate: 18, cgstRate: 9, sgstRate: 9, igstRate: 18, isDefault: true },
-    { name: "GST 28%", rate: 28, cgstRate: 14, sgstRate: 14, igstRate: 28 },
-    { name: "No GST", rate: 0, cgstRate: 0, sgstRate: 0, igstRate: 0 },
-  ];
-  for (const s of slabs) { await p.taxSlab.create({ data: { ...s, restaurantId: rest.id } }); }
-  await p.whatsAppConfig.create({ data: { restaurantId: rest.id, isConnected: false } });
-  console.log("SEEDED");
-} finally { await p.\$disconnect(); }
-ENDSCRIPT
-  cd /tmp && node seed.mjs 2>/dev/null
-' 2>/dev/null
-
+# ── Done ──
 echo ""
 echo "╔═══════════════════════════════════════════════════╗"
-echo -e "║  ${GREEN}✅ Ritam Bharat POS is LIVE!${NC}                  ║"
+echo -e "║  ${GREEN}✅ Ritam Bharat POS is LIVE!${NC}                 ║"
 echo "╚═══════════════════════════════════════════════════╝"
 echo ""
 echo "  🌐 http://${DOMAIN}"
