@@ -42,3 +42,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# capacitor / android (PWA only — no native apps)
+/android/
+/dist/
+*.jar
+capacitor.*
