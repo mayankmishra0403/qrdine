@@ -20,7 +20,7 @@ echo -e "${GREEN}[1/5] Docker ready${NC}"
 
 # ── 2. Repo ──
 echo -e "${YELLOW}[2/5] Setting up repository...${NC}"
-if [ -d "$REPO_DIR" ]; then rm -rf "$REPO_DIR"; fi
+if [ -d "$REPO_DIR" ]; then cd /tmp && rm -rf "$REPO_DIR"; fi
 git clone --depth 1 "$REPO_URL" "$REPO_DIR"
 cd "$REPO_DIR"
 echo -e "${GREEN}[2/5] Repository ready${NC}"
