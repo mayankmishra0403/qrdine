@@ -1,0 +1,45 @@
+{
+	"appId": "software.ritambharat.waiter",
+	"appName": "RB Waiter",
+	"webDir": "public",
+	"server": {
+		"url": "https://pos.ritambharat.software/waiter-app",
+		"cleartext": false,
+		"androidScheme": "https",
+		"allowNavigation": [
+			"pos.ritambharat.software"
+		]
+	},
+	"android": {
+		"path": "android/waiter",
+		"allowMixedContent": false,
+		"backgroundColor": "#f9fafb"
+	},
+	"ios": {
+		"backgroundColor": "#f9fafb"
+	},
+	"plugins": {
+		"SplashScreen": {
+			"launchShowDuration": 2000,
+			"backgroundColor": "#1f2937",
+			"androidSplashResourceName": "splash",
+			"autoHide": true
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"backgroundColor": "#1f2937",
+			"overlaysWebView": false
+		},
+		"Keyboard": {
+			"resize": "body",
+			"style": "DARK"
+		},
+		"PushNotifications": {
+			"presentationOptions": [
+				"badge",
+				"sound",
+				"alert"
+			]
+		}
+	}
+}

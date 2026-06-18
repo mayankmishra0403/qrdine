@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head><title>Audio Test</title></head>
+<body>
+<h1>Audio Test</h1>
+<button onclick="testAudio()">Test Sound</button>
+<button onclick="testSpeech()">Test Speech</button>
+<pre id="log"></pre>
+<script>
+function log(msg) { document.getElementById('log').textContent += msg + '\n'; }
+
+function testAudio() {
+  try {
+    log('Creating AudioContext...');
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    log('State: ' + ctx.state);
+    
+    ctx.resume().then(() => {
+      log('Resumed! State: ' + ctx.state);
+      log('Creating oscillator...');
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(880, ctx.currentTime);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.5);
+      log('Sound should be playing now!');
+    }).catch(e => log('Resume error: ' + e.message));
+  } catch(e) { log('Error: ' + e.message); }
+}
+
+function testSpeech() {
+  try {
+    log('Testing speech...');
+    const u = new SpeechSynthesisUtterance('Hello, this is a test');
+    u.lang = 'en-US';
+    u.rate = 1.1;
+    window.speechSynthesis.speak(u);
+    log('Speech should be playing');
+  } catch(e) { log('Speech error: ' + e.message); }
+}
+
+log('Page loaded. Click buttons to test.');
+</script>
+</body>
+</html>
