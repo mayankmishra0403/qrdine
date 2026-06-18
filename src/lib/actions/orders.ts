@@ -233,7 +233,7 @@ export async function updateOrderStatus(orderId: string, status: string) {
       }
 
       if (msg) {
-        sendWhatsAppMessage(order.customer.phone, msg).catch(() => {});
+        sendWhatsAppMessage(order.customer.phone, msg).catch((err: Error) => console.error("[WhatsApp] Send message error:", err.message));
       }
     }
 

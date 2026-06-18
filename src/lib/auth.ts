@@ -46,15 +46,6 @@ export async function auth() {
   const nextAuthSession = await realAuth();
   if (nextAuthSession?.user) return nextAuthSession;
 
-  try {
-    const { prisma } = await import("./prisma");
-    const restaurant = await prisma.restaurant.findFirst();
-    if (restaurant) {
-      const user = await prisma.user.findFirst({ where: { restaurantId: restaurant.id } });
-      if (user) return { user: { id: user.id, email: user.email, name: user.name, role: user.role, restaurantId: user.restaurantId }, expires: new Date(Date.now() + 86400000).toISOString() };
-    }
-  } catch {}
-
   return null;
 }
 

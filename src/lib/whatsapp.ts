@@ -131,7 +131,7 @@ export async function connectWithPairingCode(
 
   const exists = await checkInstanceExists(instanceName);
   if (exists) {
-    await disconnectInstance(instanceName).catch(() => {});
+    await disconnectInstance(instanceName).catch((err: Error) => console.error("[WhatsApp] Disconnect error:", err.message));
     await new Promise((r) => setTimeout(r, 2000));
     const deleted = await deleteInstance(instanceName);
     if (!deleted.success) {

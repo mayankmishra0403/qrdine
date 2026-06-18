@@ -246,7 +246,7 @@ export async function processPayment(data: {
         `Paid via: ${data.method.toUpperCase()}` +
         `\n\nInvoice #${invoiceNo}\nWe hope to see you again!`;
 
-      sendWhatsAppMessage(order.customer.phone, msg).catch(() => {});
+      sendWhatsAppMessage(order.customer.phone, msg).catch((err: Error) => console.error("[WhatsApp] Send message error:", err.message));
     }
 
     revalidatePath("/admin/pos");

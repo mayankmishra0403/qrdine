@@ -153,6 +153,9 @@ model MenuItem {
   addonGroups   AddonGroup[]
   orderItems    OrderItem[]
   recipeItems   RecipeItem[]
+
+  @@index([categoryId])
+  @@index([restaurantId, isAvailable])
 }
 
 model MenuItemVariant {
@@ -218,6 +221,12 @@ model Order {
   feedbacks     Feedback[]
   invoice       Invoice?
   payments      Payment[]
+
+  @@index([restaurantId, status])
+  @@index([restaurantId, createdAt])
+  @@index([tableId])
+  @@index([customerId])
+  @@index([waiterId])
 }
 
 model OrderItem {
@@ -233,6 +242,9 @@ model OrderItem {
   item    MenuItem         @relation(fields: [itemId], references: [id])
   variant MenuItemVariant? @relation(fields: [variantId], references: [id])
   addons  OrderItemAddon[]
+
+  @@index([itemId])
+  @@index([orderId])
 }
 
 model OrderItemAddon {

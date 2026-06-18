@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { prisma } from "./prisma";
+import { createHmac } from "node:crypto";
 
 export async function getSession() {
   const cookieStore = await cookies();
@@ -7,43 +7,23 @@ export async function getSession() {
   if (!sessionCookie) return null;
 
   try {
-    return JSON.parse(Buffer.from(sessionCookie.value, "base64").toString());
+    const secret = process.env.AUTH_SECRET || "";
+    const [payload, signature] = sessionCookie.value.split(".");
+    if (!payload || !signature) return null;
+
+    const expected = createHmac("sha256", secret).update(payload).digest("hex");
+    if (signature !== expected) return null;
+
+    return JSON.parse(Buffer.from(payload, "base64url").toString());
   } catch {
     return null;
   }
 }
 
-async function getDemoSession() {
-  const restaurant = await prisma.restaurant.findFirst();
-  if (!restaurant) throw new Error("No restaurant found. Run seed first.");
-
-  const user = await prisma.user.findFirst({
-    where: { restaurantId: restaurant.id },
-  });
-  if (!user) throw new Error("No user found. Run seed first.");
-
-  return {
-    user: {
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      restaurantId: user.restaurantId,
-    },
-    expires: new Date(Date.now() + 86400000).toISOString(),
-  };
-}
-
 export async function requireAuth() {
   const session = await getSession();
-  if (session) {
-    return { user: session };
-  }
-  try {
-    return await getDemoSession();
-  } catch {
-    throw new Error("Authentication required");
-  }
+  if (!session) throw new Error("Authentication required");
+  return { user: session };
 }
 
 export async function requireRole(...roles: string[]) {
@@ -54,12 +34,6 @@ export async function requireRole(...roles: string[]) {
 
 export async function auth() {
   const session = await getSession();
-  if (session) {
-    return { user: session, expires: new Date(Date.now() + 86400000).toISOString() };
-  }
-  try {
-    return await getDemoSession();
-  } catch {
-    return null;
-  }
+  if (!session) return null;
+  return { user: session, expires: new Date(Date.now() + 86400000).toISOString() };
 }

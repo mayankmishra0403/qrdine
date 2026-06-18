@@ -98,9 +98,9 @@ export async function disconnectWhatsApp() {
       data: { isConnected: false },
     });
 
-    await disconnectInstance(instanceName).catch(() => {});
+    await disconnectInstance(instanceName).catch((err: Error) => console.error("[WhatsApp] Disconnect error:", err.message));
     await new Promise((r) => setTimeout(r, 2000));
-    await deleteInstance(instanceName).catch(() => {});
+    await deleteInstance(instanceName).catch((err: Error) => console.error("[WhatsApp] Delete instance error:", err.message));
 
     revalidatePath("/admin/whatsapp");
     return { success: true };
