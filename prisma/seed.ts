@@ -17,6 +17,10 @@ async function main() {
       serviceCharge: 0,
       gstin: "22AAAAA0000A1Z5",
       pan: "AAAAA0000A",
+      loyaltyEnabled: true,
+      loyaltyEarnRate: 100,
+      loyaltyRedeemRate: 100,
+      loyaltyMinRedeem: 100,
     },
   });
 

@@ -7,6 +7,7 @@ import { placeOrderSchema } from "@/lib/validation";
 import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 
 type CartItem = {
   itemId: string;
@@ -222,7 +223,18 @@ export async function updateOrderStatus(orderId: string, status: string) {
             })
             .join("\n");
           const total = Number(order.total);
-          msg = `Thanks for dining at ${restaurantName}!\n\n── Final Bill ──\n${itemLines}\n────────────────\nTotal: ₹${total.toFixed(2)}\n\nWe hope to see you again!`;
+          let loyaltySuffix = "";
+          const earnResult = await earnLoyaltyPoints(orderId);
+          if (earnResult?.success && earnResult.points && order.customerId) {
+            const loyalty = await prisma.loyaltyProgram.findUnique({
+              where: { customerId: order.customerId },
+            });
+            if (loyalty) {
+              const available = loyalty.pointsEarned - loyalty.pointsRedeemed;
+              loyaltySuffix = `\n\n⭐ You earned ${earnResult.points} loyalty points!\nTotal: ${loyalty.pointsEarned} pts | Available: ${available} pts`;
+            }
+          }
+          msg = `Thanks for dining at ${restaurantName}!\n\n── Final Bill ──\n${itemLines}\n────────────────\nTotal: ₹${total.toFixed(2)}\n\nWe hope to see you again!${loyaltySuffix}`;
           break;
         }
         case "cancelled":

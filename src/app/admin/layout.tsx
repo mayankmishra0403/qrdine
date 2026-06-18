@@ -15,6 +15,7 @@ const navLinks = [
   { href: "/admin/rooms", label: "Rooms/Zones" },
   { href: "/admin/orders", label: "Orders" },
   { href: "/admin/customers", label: "Customers" },
+  { href: "/admin/loyalty", label: "⭐ Loyalty" },
   { href: "/admin/analytics", label: "Analytics" },
   { type: "label", label: "--- Inventory ---" },
   { href: "/admin/inventory", label: "Stock Items" },
@@ -27,6 +28,7 @@ const navLinks = [
   { href: "/admin/billing", label: "Billing" },
   { href: "/admin/settings", label: "Settings" },
   { href: "/admin/settings/gst", label: "GST Settings" },
+  { href: "/admin/settings/loyalty", label: "⭐ Loyalty Settings" },
 ];
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

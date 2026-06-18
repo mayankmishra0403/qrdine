@@ -23,6 +23,10 @@ model Restaurant {
   currency       String   @default("INR")
   taxRate        Decimal  @default(0) @db.Decimal(5, 2)
   serviceCharge  Decimal  @default(0) @db.Decimal(5, 2)
+  loyaltyEnabled Boolean  @default(false)
+  loyaltyEarnRate Int     @default(100)
+  loyaltyRedeemRate Int   @default(100)
+  loyaltyMinRedeem Int    @default(100)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -221,6 +225,7 @@ model Order {
   feedbacks     Feedback[]
   invoice       Invoice?
   payments      Payment[]
+  loyaltyRewards LoyaltyReward[]
 
   @@index([restaurantId, status])
   @@index([restaurantId, createdAt])
@@ -279,11 +284,12 @@ model Customer {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  restaurant Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  orders     Order[]
-  feedbacks  Feedback[]
-  invoices   Invoice[]
-  loyalty    LoyaltyProgram?
+  restaurant     Restaurant      @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  orders         Order[]
+  feedbacks      Feedback[]
+  invoices       Invoice[]
+  loyalty        LoyaltyProgram?
+  loyaltyRewards LoyaltyReward[]
 
   @@unique([restaurantId, phone])
 }
@@ -310,6 +316,21 @@ model LoyaltyProgram {
   updatedAt      DateTime @updatedAt
 
   customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+}
+
+model LoyaltyReward {
+  id          String   @id @default(cuid())
+  customerId  String
+  orderId     String
+  pointsUsed  Int
+  discountAmt Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+
+  customer Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([orderId])
 }
 
 model Payment {

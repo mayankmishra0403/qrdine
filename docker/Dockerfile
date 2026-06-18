@@ -25,6 +25,7 @@ RUN adduser --system --uid 1001 -h /home/nextjs nextjs
 
 COPY --from=builder /app/docker/entrypoint.sh ./entrypoint.sh
 COPY --from=builder /app/docker/seed.cjs ./seed.cjs
+COPY --from=builder /app/docker/migrate.mjs ./migrate.mjs
 RUN chmod +x entrypoint.sh
 
 COPY --from=builder /app/public ./public

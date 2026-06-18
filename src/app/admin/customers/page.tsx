@@ -32,12 +32,22 @@ export default async function CustomersPage() {
                     {customer.phone}
                   </p>
                 </div>
-                <div className="text-right text-sm">
+                  <div className="text-right text-sm">
                   <p className="font-medium">{customer.totalOrders} orders</p>
                   {customer.lastVisit && (
                     <p className="text-muted-foreground">
                       Last: {new Date(customer.lastVisit).toLocaleDateString()}
                     </p>
+                  )}
+                  {customer.loyalty && (
+                    <div className="flex items-center gap-1 mt-1 justify-end">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-medium ${customer.loyalty.tierColor}`}>
+                        {customer.loyalty.tierLabel}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">
+                        {customer.loyalty.pointsAvailable} pts
+                      </span>
+                    </div>
                   )}
                 </div>
               </div>

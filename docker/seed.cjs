@@ -3,7 +3,7 @@ const p = new PrismaClient();
 (async () => {
   const existing = await p.restaurant.findFirst();
   if (existing) { console.log('Already seeded'); return; }
-  const r = await p.restaurant.create({ data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!' } });
+  const r = await p.restaurant.create({ data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!', loyaltyEnabled: true, loyaltyEarnRate: 100, loyaltyRedeemRate: 100, loyaltyMinRedeem: 100 } });
   const hash = '$2b$10$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW';
   await p.user.createMany({ data: [
     { email: 'admin@rb.com', passwordHash: hash, name: 'Admin', role: 'owner', pin: '2006', restaurantId: r.id },

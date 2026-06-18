@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 import { numberToWords } from "@/lib/number-to-words";
 
 export async function getPosData() {
@@ -89,6 +90,7 @@ export async function createPosOrder(data: {
   }>;
   orderType?: string;
   waiterId?: string;
+  customerPhone?: string;
 }) {
   try {
     const session = await auth();
@@ -106,6 +108,29 @@ export async function createPosOrder(data: {
     const subtotal = data.items.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
     const orderType = data.orderType || "dine-in";
 
+    let customerId: string | undefined;
+    if (data.customerPhone) {
+      const customer = await prisma.customer.upsert({
+        where: {
+          restaurantId_phone: {
+            restaurantId: session.user.restaurantId,
+            phone: data.customerPhone,
+          },
+        },
+        create: {
+          phone: data.customerPhone,
+          restaurantId: session.user.restaurantId,
+          totalOrders: 1,
+          lastVisit: new Date(),
+        },
+        update: {
+          totalOrders: { increment: 1 },
+          lastVisit: new Date(),
+        },
+      });
+      customerId = customer.id;
+    }
+
     const order = await prisma.order.create({
       data: {
         status: "confirmed",
@@ -115,6 +140,7 @@ export async function createPosOrder(data: {
         tableId: data.tableId,
         restaurantId: session.user.restaurantId,
         waiterId: data.waiterId,
+        customerId,
         items: {
           create: data.items.map((i) => ({
             itemId: i.itemId,
@@ -155,6 +181,7 @@ export async function processPayment(data: {
   method: string;
   amount: number;
   reference?: string;
+  customerPhone?: string;
 }) {
   try {
     const session = await auth();
@@ -170,6 +197,33 @@ export async function processPayment(data: {
       },
     });
     if (!order) throw new Error("Order not found");
+
+    if (data.customerPhone && !order.customerId) {
+      const customer = await prisma.customer.upsert({
+        where: {
+          restaurantId_phone: {
+            restaurantId: session.user.restaurantId,
+            phone: data.customerPhone,
+          },
+        },
+        create: {
+          phone: data.customerPhone,
+          restaurantId: session.user.restaurantId,
+          totalOrders: 1,
+          lastVisit: new Date(),
+        },
+        update: {
+          totalOrders: { increment: 1 },
+          lastVisit: new Date(),
+        },
+      });
+      await prisma.order.update({
+        where: { id: data.orderId },
+        data: { customerId: customer.id },
+      });
+      order.customerId = customer.id;
+      order.customer = customer;
+    }
 
     const payment = await prisma.payment.create({
       data: {
@@ -230,6 +284,20 @@ export async function processPayment(data: {
       });
     }
 
+    let loyaltyMsg = "";
+    if (order.customerId) {
+      const earnResult = await earnLoyaltyPoints(data.orderId);
+      if (earnResult?.success && earnResult.points && order.customer?.phone) {
+        const loyalty = await prisma.loyaltyProgram.findUnique({
+          where: { customerId: order.customerId },
+        });
+        if (loyalty) {
+          const available = loyalty.pointsEarned - loyalty.pointsRedeemed;
+          loyaltyMsg = `\n\n⭐ You earned ${earnResult.points} loyalty points!\nTotal: ${loyalty.pointsEarned} pts | Available: ${available} pts`;
+        }
+      }
+    }
+
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
       const itemLines = order.items
         .map(
@@ -244,7 +312,8 @@ export async function processPayment(data: {
         (Number(order.discount) > 0 ? `\nDiscount: -₹${Number(order.discount).toFixed(2)}` : "") +
         `\nTotal: ₹${Number(order.total).toFixed(2)}\n` +
         `Paid via: ${data.method.toUpperCase()}` +
-        `\n\nInvoice #${invoiceNo}\nWe hope to see you again!`;
+        `\n\nInvoice #${invoiceNo}\nWe hope to see you again!` +
+        loyaltyMsg;
 
       sendWhatsAppMessage(order.customer.phone, msg).catch((err: Error) => console.error("[WhatsApp] Send message error:", err.message));
     }

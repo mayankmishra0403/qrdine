@@ -36,11 +36,15 @@ export default function WhatsAppPage() {
     Promise.all([
       isWhatsAppConfigured(),
       getWhatsAppConfig(),
-    ]).then(([configured, cfg]) => {
+      checkWhatsAppStatus(),
+    ]).then(([configured, cfg, status]) => {
       setEnvConfigured(configured);
       if (cfg) {
-        setConfig(cfg as Config);
+        const statusResult = status as { success: boolean; connected?: boolean; state?: string };
+        setConfig({ ...(cfg as Config), isConnected: statusResult.success ? !!statusResult.connected : (cfg as Config).isConnected });
       }
+      const statusResult = status as { success: boolean; connected?: boolean; state?: string };
+      if (statusResult.state) setState(statusResult.state);
       setLoading(false);
     });
   }, []);

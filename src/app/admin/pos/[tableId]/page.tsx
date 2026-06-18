@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { getPosData, createPosOrder, processPayment, updateOrderTotals } from "@/lib/actions/pos";
+import { getLoyaltySettings, getCustomerLoyalty, redeemLoyaltyPoints } from "@/lib/actions/loyalty";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -75,10 +76,21 @@ export default function PosBillingPage() {
   const [paymentMethod, setPaymentMethod] = useState<string>("");
   const [paymentRef, setPaymentRef] = useState("");
   const [paidOrderId, setPaidOrderId] = useState<string | null>(null);
+  const [customerPhone, setCustomerPhone] = useState("");
   const [processing, setProcessing] = useState(false);
 
   const existingOrder = data?.orders?.find((o) => o.tableId === tableId && o.status !== "served" && o.status !== "cancelled");
   const table = data?.tables?.find((t) => t.id === tableId);
+
+  const [loyaltyInfo, setLoyaltyInfo] = useState<{
+    tier: string; tierLabel: string; tierColor: string;
+    pointsEarned: number; pointsRedeemed: number; pointsAvailable: number;
+    tierMultiplier: number;
+    nextTier: { label: string; pointsNeeded: number } | null;
+  } | null>(null);
+  const [loyaltyEnabled, setLoyaltyEnabled] = useState(false);
+  const [redeemPoints, setRedeemPoints] = useState(0);
+  const [showRedeem, setShowRedeem] = useState(false);
 
   const fetchData = useCallback(async () => {
     const result = await getPosData();
@@ -95,6 +107,40 @@ export default function PosBillingPage() {
   }, [fetchData]);
 
   const restaurant = data?.restaurant;
+
+  useEffect(() => {
+    if (existingOrder?.customer?.phone) {
+      getLoyaltySettings().then((r) => {
+        if (r.success && r.data) setLoyaltyEnabled(r.data.loyaltyEnabled);
+      });
+      getCustomerLoyalty(existingOrder.customer.phone).then((r) => {
+        if (r) setLoyaltyInfo(r as unknown as typeof loyaltyInfo);
+      });
+    } else {
+      setLoyaltyInfo(null);
+    }
+  }, [existingOrder?.customer?.phone]);
+
+  async function handleRedeem() {
+    if (!existingOrder?.customer?.phone || !existingOrder.id || redeemPoints <= 0) return;
+    setProcessing(true);
+    const r = await redeemLoyaltyPoints({
+      orderId: existingOrder.id,
+      customerId: existingOrder.customer.phone,
+      points: redeemPoints,
+    });
+    if (r.success) {
+      toast.success(`₹${Number(r.discount).toFixed(2)} discount applied via loyalty!`);
+      setShowRedeem(false);
+      setRedeemPoints(0);
+      await fetchData();
+      const info = await getCustomerLoyalty(existingOrder.customer.phone);
+      if (info) setLoyaltyInfo(info as unknown as typeof loyaltyInfo);
+    } else {
+      toast.error(r.error || "Redemption failed");
+    }
+    setProcessing(false);
+  }
 
   function addToCart(item: MenuItem) {
     const variantId = selectedVariants[item.id] || null;
@@ -147,10 +193,11 @@ export default function PosBillingPage() {
       unitPrice: c.item.price + (c.variant?.priceMod || 0),
     }));
 
-    const result = await createPosOrder({ tableId, items, orderType });
+    const result = await createPosOrder({ tableId, items, orderType, customerPhone: customerPhone || undefined });
     if (result.success) {
       toast.success("Order created");
       setCart([]);
+      setCustomerPhone("");
       setDiscount(0);
       await fetchData();
     } else {
@@ -186,11 +233,13 @@ export default function PosBillingPage() {
       method: paymentMethod,
       amount: Number(existingOrder.total),
       reference: paymentRef || undefined,
+      customerPhone: customerPhone || undefined,
     });
     if (result.success) {
       toast.success(`Payment complete via ${paymentMethod.toUpperCase()}`);
       setPaidOrderId(existingOrder.id);
       setShowPayment(false);
+      setCustomerPhone("");
       setPaymentMethod("");
       setPaymentRef("");
     } else {
@@ -348,6 +397,19 @@ export default function PosBillingPage() {
         <div className="w-80 shrink-0 flex flex-col border-l pl-4">
           <h3 className="text-sm font-semibold mb-2">Current Bill</h3>
 
+          {(!existingOrder || !existingOrder.customer?.phone) && (
+            <div className="mb-2">
+              <Label className="text-[10px] text-muted-foreground">Customer Phone (for loyalty)</Label>
+              <Input
+                type="tel"
+                placeholder="e.g. 919876543210"
+                value={customerPhone}
+                onChange={(e) => setCustomerPhone(e.target.value)}
+                className="h-8 text-xs mt-0.5"
+              />
+            </div>
+          )}
+
           <div className="flex-1 overflow-y-auto space-y-1 mb-3">
             {existingOrder ? (
               existingOrder.items.map((oi) => (
@@ -487,6 +549,44 @@ export default function PosBillingPage() {
                 <span>Total</span>
                 <span>₹{grandTotal.toFixed(2)}</span>
               </div>
+            </div>
+          )}
+
+          {loyaltyEnabled && existingOrder?.customer?.phone && loyaltyInfo && (
+            <div className="mb-2 p-2 rounded-lg border border-amber-200 bg-amber-50 text-xs space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-amber-800">Loyalty</span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full text-white font-medium ${loyaltyInfo.tierColor}`}>
+                  {loyaltyInfo.tierLabel}
+                </span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>Points Available</span>
+                <span className="font-bold">{loyaltyInfo.pointsAvailable}</span>
+              </div>
+              {loyaltyInfo.nextTier && (
+                <p className="text-[10px] text-amber-600">
+                  {loyaltyInfo.nextTier.pointsNeeded} pts to {loyaltyInfo.nextTier.label}
+                </p>
+              )}
+              {!showRedeem && loyaltyInfo.pointsAvailable >= 100 && (
+                <Button size="sm" variant="outline" className="w-full text-xs h-7 border-amber-300 text-amber-800 hover:bg-amber-100"
+                  onClick={() => setShowRedeem(true)}>
+                  🎯 Redeem Points
+                </Button>
+              )}
+              {showRedeem && (
+                <div className="flex items-center gap-1">
+                  <Input type="number" value={redeemPoints} onChange={(e) => setRedeemPoints(Number(e.target.value))}
+                    placeholder="Points" className="h-7 text-[10px] flex-1" min={0} />
+                  <Button size="sm" className="text-[10px] h-7" onClick={handleRedeem} disabled={processing || redeemPoints <= 0}>
+                    Apply
+                  </Button>
+                  <Button size="sm" variant="ghost" className="text-[10px] h-7" onClick={() => { setShowRedeem(false); setRedeemPoints(0); }}>
+                    ✕
+                  </Button>
+                </div>
+              )}
             </div>
           )}
 

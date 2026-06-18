@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +8,6 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { loginWithEmail, loginWithPin } from "@/lib/actions/auth";
 
 export function LoginForm() {
-  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"email" | "pin">("email");
@@ -71,11 +69,11 @@ export function LoginForm() {
   }
 
   function redirectByRole(role?: string) {
-    if (role === "kitchen") router.push("/kitchen");
-    else if (role === "cashier") router.push("/admin/pos");
-    else if (role === "waiter") router.push("/waiter-app");
-    else router.push("/admin");
-    router.refresh();
+    let path = "/admin";
+    if (role === "kitchen") path = "/kitchen";
+    else if (role === "cashier") path = "/admin/pos";
+    else if (role === "waiter") path = "/waiter-app";
+    window.location.href = path;
   }
 
   return (

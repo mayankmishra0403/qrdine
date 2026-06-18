@@ -16,7 +16,7 @@ function signSession(payload: Record<string, unknown>): string {
 function makeSessionCookieOptions() {
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: false,
     sameSite: "lax" as const,
     path: "/",
     maxAge: 86400,
