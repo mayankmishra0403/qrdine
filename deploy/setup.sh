@@ -27,8 +27,8 @@ echo -e "${GREEN}[2/5] Repository ready${NC}"
 
 # ── 3. .env ──
 echo -e "${YELLOW}[3/5] Creating environment...${NC}"
-mkdir -p "$REPO_DIR/docker"
-cat > "$REPO_DIR/docker/.env" << EOF
+ENV_FILE="$REPO_DIR/.env"
+cat > "$ENV_FILE" << EOF
 DATABASE_URL="postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
 REDIS_URL="redis://redis:6379"
 AUTH_SECRET="$(openssl rand -hex 32)"
@@ -87,7 +87,7 @@ const p = new PrismaClient();
   const existing = await p.restaurant.findFirst();
   if (existing) { console.log('Already seeded'); return; }
   const rest = await p.restaurant.create({
-    data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!' }
+    data: { name: 'Ritam Bharat', slug: 'ritam-bharat', address: 'Your Restaurant Address', phone: '+919999999999', email: 'hello@ritambharat.software', currency: 'INR', gstin: '22AAAAA0000A1Z5', pan: 'AAAAA0000A', taxRate: 5, serviceCharge: 0, billFooter: 'Thank you! Visit again!', loyaltyEnabled: true, loyaltyEarnRate: 100, loyaltyRedeemRate: 100, loyaltyMinRedeem: 100 }
   });
   await p.user.createMany({ data: [
     { email: 'admin@rb.com', passwordHash: '\$2b\$10\$9QQuqwAsDFit.1JC.nwXv.x9fSAhMq495k4GMt8XTgoVaTwvGeXDW', name: 'Admin', role: 'owner', pin: '2006', restaurantId: rest.id },
