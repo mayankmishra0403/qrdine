@@ -12,6 +12,24 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/((?!_next/static|icons/|manifest\\.json|sw\\.js).*)",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "CDN-Cache-Control", value: "no-cache" },
+          { key: "Cloudflare-CDN-Cache-Control", value: "no-cache" },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
