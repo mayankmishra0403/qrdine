@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
-import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT } from "@/lib/actions/whatsapp";
 
 export async function getWaiterAppData() {
   try {
@@ -135,6 +135,23 @@ export async function createWaiterAppOrder(data: {
       await prisma.table.update({ where: { id: table.id }, data: { status: "occupied" } });
     }
 
+    if (await isWhatsAppConfigured()) {
+      const kotItems = order.items.map((i) => ({
+        name: i.item.name,
+        variant: null,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+      }));
+      sendKOT({
+        kotNumber: order.id.slice(-6).toUpperCase(),
+        restaurantName: order.restaurant?.name || "Restaurant",
+        tableNumber: order.table?.tableNumber,
+        customerName: order.customer?.name,
+        orderType: data.type,
+        items: kotItems,
+      }).catch((err: Error) => console.error("[KOT] Send error:", err.message));
+    }
+
     if (fullPhone && (await isWhatsAppConfigured())) {
       const menuItems = await prisma.menuItem.findMany({
         where: { id: { in: data.items.map((i) => i.itemId) } },
@@ -144,22 +161,22 @@ export async function createWaiterAppOrder(data: {
       const itemLines = data.items.map((i) => `  ${i.quantity}x ${nameMap[i.itemId] || i.itemId} — ₹${(i.unitPrice * i.quantity).toFixed(2)}`).join("\n");
 
       const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const billLink = `${tunnelUrl}/bill/${order.id}`;
 
       if (data.type === "takeaway") {
         await sendWhatsAppMessage(fullPhone,
-          `📦 *Takeaway Order Confirmed* — ${order.restaurant?.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\nWe'll notify you when ready.`);
+          `📦 *Takeaway Order Confirmed* — ${order.restaurant?.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nWe'll notify you when ready.`);
 
         if (data.instantBill) {
           const billItemLines = order.items
             .map((i) => `  ${i.item.name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`)
             .join("\n");
-          const billLink = `${tunnelUrl}/bill/${order.id}`;
           await sendWhatsAppMessage(fullPhone,
             `🧾 *Your Bill* — ${order.restaurant?.name}\n\n── Items ──\n${billItemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nPlease pay at the counter.\nThank you!`);
         }
       } else {
         await sendWhatsAppMessage(fullPhone,
-          `✅ *Order Confirmed* — ${order.restaurant?.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\nWe'll notify you when ready.`);
+          `✅ *Order Confirmed* — ${order.restaurant?.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nWe'll notify you when ready.`);
       }
     }
 

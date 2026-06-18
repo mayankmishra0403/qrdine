@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { placeOrderSchema } from "@/lib/validation";
 import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
-import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 
 type CartItem = {
@@ -109,6 +109,23 @@ export async function placeOrder(
     revalidatePath("/kitchen");
     revalidatePath("/admin/orders");
 
+    if (await isWhatsAppConfigured()) {
+      const kotItems = order.items.map((i) => ({
+        name: i.item.name,
+        variant: i.variant?.name,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+      }));
+      sendKOT({
+        kotNumber: order.id.slice(-6).toUpperCase(),
+        restaurantName: table.restaurant.name,
+        tableNumber: order.table?.tableNumber,
+        customerName: null,
+        orderType: "dine-in",
+        items: kotItems,
+      }).catch((err: Error) => console.error("[KOT] Send error:", err.message));
+    }
+
     let whatsappSent = false;
     if (await isWhatsAppConfigured()) {
       const restaurant = table.restaurant;
@@ -119,7 +136,9 @@ export async function placeOrder(
           return `  ${name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`;
         })
         .join("\n");
-      const msg = `Hi! Your order #${shortId} has been placed at ${restaurant.name}.\n\n── Receipt ──\n${itemLines}\n─────────────\nTotal: ₹${Number(order.total).toFixed(2)}\n\nWe'll notify you when it's confirmed. Thank you!`;
+      const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      const billLink = `${tunnelUrl}/bill/${order.id}`;
+      const msg = `Hi! Your order #${shortId} has been placed at ${restaurant.name}.\n\n── Receipt ──\n${itemLines}\n─────────────\nTotal: ₹${Number(order.total).toFixed(2)}\n\n📎 View Bill: ${billLink}\n\nWe'll notify you when it's confirmed. Thank you!`;
       const result = await sendWhatsAppMessage(parsed.data.phone, msg);
       if (result.success) {
         whatsappSent = true;
@@ -245,7 +264,10 @@ export async function updateOrderStatus(orderId: string, status: string) {
       }
 
       if (msg) {
-        sendWhatsAppMessage(order.customer.phone, msg).catch((err: Error) => console.error("[WhatsApp] Send message error:", err.message));
+        const sendResult = await sendWhatsAppMessage(order.customer.phone, msg);
+        if (!sendResult.success) {
+          console.error("[WhatsApp] Send message failed:", sendResult.error);
+        }
       }
     }
 

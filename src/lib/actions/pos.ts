@@ -5,7 +5,7 @@ import { auth } from "@/lib/auth";
 import { revalidatePath } from "next/cache";
 import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
-import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 import { numberToWords } from "@/lib/number-to-words";
 
@@ -159,6 +159,8 @@ export async function createPosOrder(data: {
       include: {
         items: { include: { item: true, variant: true } },
         table: true,
+        restaurant: true,
+        customer: true,
       },
     });
 
@@ -167,6 +169,38 @@ export async function createPosOrder(data: {
         where: { id: data.tableId },
         data: { status: "occupied" },
       });
+    }
+
+    const kotNumber = order.id.slice(-6).toUpperCase();
+
+    if (await isWhatsAppConfigured()) {
+      const kotItems = order.items.map((i) => ({
+        name: i.item.name,
+        variant: i.variant?.name,
+        quantity: i.quantity,
+        unitPrice: Number(i.unitPrice),
+      }));
+      sendKOT({
+        kotNumber,
+        restaurantName: order.restaurant?.name || "Restaurant",
+        tableNumber: order.table?.tableNumber,
+        customerName: order.customer?.name,
+        orderType,
+        items: kotItems,
+      }).catch((err: Error) => console.error("[KOT] Send error:", err.message));
+    }
+
+    if (order.customer?.phone && (await isWhatsAppConfigured())) {
+      const itemLines = order.items
+        .map((i) => `  ${i.item.name}${i.variant ? ` (${i.variant.name})` : ""} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`)
+        .join("\n");
+      const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || `http://localhost:3000`;
+      const billLink = `${tunnelUrl}/bill/${order.id}`;
+      const msg = `✅ *Order Confirmed* — ${order.restaurant?.name}\n\n── Items ──\n${itemLines}\n─────────────\n*Total: ₹${subtotal.toFixed(2)}*\n\n📎 View Bill: ${billLink}\n\nWe'll notify you when ready.`;
+      const sendResult = await sendWhatsAppMessage(order.customer.phone, msg);
+      if (!sendResult.success) {
+        console.error("[WhatsApp] Send message failed:", sendResult.error);
+      }
     }
 
     revalidatePath("/admin/pos");
@@ -315,7 +349,12 @@ export async function processPayment(data: {
         `\n\nInvoice #${invoiceNo}\nWe hope to see you again!` +
         loyaltyMsg;
 
-      sendWhatsAppMessage(order.customer.phone, msg).catch((err: Error) => console.error("[WhatsApp] Send message error:", err.message));
+      const billLink = `${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}`;
+      const paymentMsg = msg + `\n\n📎 View Bill: ${billLink}`;
+      const sendResult = await sendWhatsAppMessage(order.customer.phone, paymentMsg);
+      if (!sendResult.success) {
+        console.error("[WhatsApp] Send message failed:", sendResult.error);
+      }
     }
 
     revalidatePath("/admin/pos");

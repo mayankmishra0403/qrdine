@@ -9,6 +9,7 @@ import {
   disconnectInstance,
   deleteInstance,
   formatPhone,
+  getConnectedPhone,
 } from "@/lib/whatsapp";
 import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
@@ -117,6 +118,70 @@ export async function sendWhatsAppMessage(phone: string, text: string) {
     }
     return { success: true };
   } catch (error) {
+    return { success: false, error: handleActionError(error).error };
+  }
+}
+
+function buildKOTMessage(params: {
+  kotNumber: string;
+  restaurantName: string;
+  tableNumber?: number;
+  customerName?: string | null;
+  orderType: string;
+  items: Array<{ name: string; variant?: string | null; quantity: number; unitPrice: number }>;
+}) {
+  const { kotNumber, restaurantName, tableNumber, customerName, orderType, items } = params;
+  const now = new Date();
+  const date = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  const time = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+
+  const itemLines = items
+    .map((i) => `  ${i.quantity}x ${i.name}${i.variant ? ` (${i.variant})` : ""}`)
+    .join("\n");
+
+  return [
+    `🧾 *KOT — ${restaurantName}*`,
+    `━━━━━━━━━━━━━━━━━━━`,
+    `KOT #: ${kotNumber}`,
+    tableNumber ? `Table: ${tableNumber}` : null,
+    customerName ? `Customer: ${customerName}` : null,
+    `Type: ${orderType.toUpperCase()}`,
+    `Date: ${date}`,
+    `Time: ${time}`,
+    `━━━━━━━━━━━━━━━━━━━`,
+    `${itemLines}`,
+    `━━━━━━━━━━━━━━━━━━━`,
+    `Total Items: ${totalItems}`,
+    `━━━━━━━━━━━━━━━━━━━`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
+export async function sendKOT(params: {
+  kotNumber: string;
+  restaurantName: string;
+  tableNumber?: number;
+  customerName?: string | null;
+  orderType: string;
+  items: Array<{ name: string; variant?: string | null; quantity: number; unitPrice: number }>;
+}) {
+  try {
+    const kitckenPhone = await getConnectedPhone();
+    if (!kitckenPhone) {
+      console.warn("[KOT] No connected phone found to send KOT");
+      return { success: false, error: "No connected phone" };
+    }
+    const msg = buildKOTMessage(params);
+    const result = await sendText(kitckenPhone, msg);
+    if (!result.success) {
+      console.error("[KOT] Send failed:", result.error);
+      return { success: false, error: result.error };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("[KOT] Error:", error);
     return { success: false, error: handleActionError(error).error };
   }
 }

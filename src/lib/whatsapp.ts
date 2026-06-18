@@ -235,3 +235,10 @@ export async function fetchInstances(): Promise<{
 export function formatPhone(phone: string): string {
   return phone.replace(/[^0-9]/g, "");
 }
+
+export async function getConnectedPhone(instanceName: string = INSTANCE_NAME): Promise<string | null> {
+  const result = await fetchInstances();
+  if (!result.success || !result.data) return null;
+  const instance = result.data.find((i) => i.name === instanceName);
+  return instance?.number || null;
+}

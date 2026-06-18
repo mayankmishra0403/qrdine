@@ -27,7 +27,8 @@ echo -e "${GREEN}[2/5] Repository ready${NC}"
 
 # ── 3. .env ──
 echo -e "${YELLOW}[3/5] Creating environment...${NC}"
-ENV_FILE="$REPO_DIR/.env"
+# .env must be in docker/ directory where docker-compose.yml looks for it
+ENV_FILE="$REPO_DIR/docker/.env"
 cat > "$ENV_FILE" << EOF
 DATABASE_URL="postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
 REDIS_URL="redis://redis:6379"
