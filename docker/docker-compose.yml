@@ -70,18 +70,17 @@ services:
       dockerfile: docker/Dockerfile
     ports:
       - "3000:3000"
+    env_file:
+      - ./.env
+      - ../.env
     environment:
       DATABASE_URL: "postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
       REDIS_URL: "redis://redis:6379"
-      AUTH_SECRET: "${AUTH_SECRET}"
       AUTH_URL: "https://pos.ritambharat.software"
       NEXTAUTH_URL: "https://pos.ritambharat.software"
       NEXT_PUBLIC_APP_URL: "https://pos.ritambharat.software"
       EVOLUTION_API_URL: "http://evolution_api:8080"
-      EVOLUTION_API_KEY: "${EVOLUTION_API_KEY}"
-      EVOLUTION_INSTANCE_NAME: "${EVOLUTION_INSTANCE_NAME}"
       PRISMA_CLI_BINARY_TARGETS: "linux-musl-openssl-3.0.x,debian-openssl-3.0.x"
-      TUNNEL_URL: "${TUNNEL_URL}"
     depends_on:
       postgres:
         condition: service_healthy

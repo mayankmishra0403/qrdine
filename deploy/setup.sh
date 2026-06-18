@@ -27,9 +27,7 @@ echo -e "${GREEN}[2/5] Repository ready${NC}"
 
 # ── 3. .env ──
 echo -e "${YELLOW}[3/5] Creating environment...${NC}"
-# .env must be in docker/ directory where docker-compose.yml looks for it
-ENV_FILE="$REPO_DIR/docker/.env"
-cat > "$ENV_FILE" << EOF
+ENV_CONTENT=$(cat << EOF
 DATABASE_URL="postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
 REDIS_URL="redis://redis:6379"
 AUTH_SECRET="$(openssl rand -hex 32)"
@@ -41,6 +39,9 @@ EVOLUTION_API_KEY="$(openssl rand -hex 32)"
 EVOLUTION_INSTANCE_NAME="ritam-bharat-pos"
 TUNNEL_URL="https://${DOMAIN}"
 EOF
+)
+echo "$ENV_CONTENT" > "$REPO_DIR/.env"
+echo "$ENV_CONTENT" > "$REPO_DIR/docker/.env"
 echo -e "${GREEN}[3/5] Environment created${NC}"
 
 # ── 4. Build & Start Services ──
