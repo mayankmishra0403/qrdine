@@ -26,13 +26,30 @@ export function PwaRegister() {
             }
           });
         });
+
+        // Request notification permission (will prompt user)
+        if ("Notification" in window && Notification.permission === "default") {
+          Notification.requestPermission();
+        }
       } catch {
         // SW registration failed — non-critical
       }
     };
 
     register();
+
+    // Listen for beforeinstallprompt to track installability
+    let deferredPrompt: Event | null = null;
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      deferredPrompt = e;
+    };
+    window.addEventListener("beforeinstallprompt", handleBeforeInstall as EventListener);
+
+    return () => {
+      window.removeEventListener("beforeinstallprompt", handleBeforeInstall as EventListener);
+    };
   }, []);
 
-  return <link rel="manifest" href="/manifest.json" />;
+  return null;
 }

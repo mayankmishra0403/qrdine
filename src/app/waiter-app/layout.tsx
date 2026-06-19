@@ -1,11 +1,5 @@
 import type { ReactNode } from "react";
-import { PwaRegister } from "@/components/pwa-register";
 
 export default function WaiterAppLayout({ children }: { children: ReactNode }) {
-  return (
-    <>
-      <PwaRegister />
-      {children}
-    </>
-  );
+  return <>{children}</>;
 }

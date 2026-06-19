@@ -1,8 +1,9 @@
 const CACHE = "rb-static-v2"
 const PRECACHE_URLS = [
   "/manifest.json",
-  "/icons/icon-192.svg",
-  "/icons/icon-512.svg",
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/offline.html",
 ]
 
 function isStaticAsset(url) {
@@ -34,19 +35,65 @@ self.addEventListener("activate", (event) => {
 })
 
 self.addEventListener("fetch", (event) => {
-  if (!isStaticAsset(event.request.url)) return
+  if (isStaticAsset(event.request.url)) {
+    event.respondWith(
+      (async () => {
+        const cached = await caches.match(event.request)
+        if (cached) return cached
+        const response = await fetch(event.request)
+        if (response && response.status === 200) {
+          const clone = response.clone()
+          caches.open(CACHE).then((cache) => cache.put(event.request, clone))
+        }
+        return response
+      })()
+    )
+    return
+  }
 
-  event.respondWith(
-    (async () => {
-      const cached = await caches.match(event.request)
-      if (cached) return cached
+  if (event.request.mode === "navigate") {
+    event.respondWith(
+      (async () => {
+        try {
+          return await fetch(event.request)
+        } catch {
+          const cached = await caches.match("/offline.html")
+          if (cached) return cached
+          return new Response("Offline", { status: 503 })
+        }
+      })()
+    )
+  }
+})
 
-      const response = await fetch(event.request)
-      if (response && response.status === 200) {
-        const clone = response.clone()
-        caches.open(CACHE).then((cache) => cache.put(event.request, clone))
+self.addEventListener("push", (event) => {
+  if (!event.data) return
+  try {
+    const data = event.data.json()
+    const title = data.title || "Ritam Bharat POS"
+    const options = {
+      body: data.body || "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      data: data.data || {},
+      vibrate: [200, 100, 200],
+    }
+    event.waitUntil(self.registration.showNotification(title, options))
+  } catch {
+    const text = event.data.text()
+    event.waitUntil(self.registration.showNotification(text))
+  }
+})
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url || "/waiter-app"
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
+      for (const client of windowClients) {
+        if (client.url === url && "focus" in client) return client.focus()
       }
-      return response
-    })()
+      if (clients.openWindow) return clients.openWindow(url)
+    })
   )
 })
