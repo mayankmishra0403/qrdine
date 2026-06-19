@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import QRCode from "qrcode";
 
 type BillItem = {
   sr: number; name: string; hsn: string; qty: number; rate: number; amount: number;
@@ -30,6 +31,17 @@ type BillData = {
 
 export default function BillContent({ data: raw }: { data: unknown }) {
   const data = raw as BillData;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [billUrl, setBillUrl] = useState("");
+
+  useEffect(() => {
+    const url = window.location.href.split("?")[0];
+    setBillUrl(url);
+    if (canvasRef.current) {
+      QRCode.toCanvas(canvasRef.current, url, { width: 130, margin: 2, color: { dark: "#000", light: "#fff" } })
+        .catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search);
@@ -106,6 +118,12 @@ export default function BillContent({ data: raw }: { data: unknown }) {
         )}
 
         <div className="bill-footer">{data.restaurant.billFooter || "Thank you! Visit again!"}</div>
+
+        <div className="qr-section no-print">
+          <p className="qr-section-label">📱 Digital Bill</p>
+          <canvas ref={canvasRef} />
+          <p className="bill-url-text">{billUrl}</p>
+        </div>
       </div>
 
       <div style={{textAlign:"center", marginTop: 8}} className="no-print">
@@ -119,25 +137,32 @@ export default function BillContent({ data: raw }: { data: unknown }) {
         @media print { .no-print { display: none !important; } }
         @page { size: 80mm 297mm; margin: 0; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: white !important; margin: 0 !important; padding: 0 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        body { background: #f3f4f6 !important; margin: 0 !important; padding: 16px !important; }
         nav, header, footer, .fixed, .md\\:hidden, .md\\:flex, [class*="sidebar"], [class*="navbar"], aside { display: none !important; }
         .min-h-screen.bg-background > *:not(main) { display: none !important; }
         main { margin: 0 !important; padding: 0 !important; max-width: 100% !important; }
 
-        .bill-container { max-width: 420px; margin: 0 auto; padding: 20px 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; background: white; border-radius: 16px; }
-        .bill-header { font-size: 18px; font-weight: 700; margin-bottom: 2px; }
-        .bill-addr { font-size: 12px; color: #555; }
-        .bill-meta { font-size: 12px; padding: 1px 0; }
+        .bill-container { max-width: 420px; margin: 0 auto; padding: 24px 20px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; background: white; border-radius: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .bill-header { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+        .bill-addr { font-size: 12px; color: #444; font-weight: 600; }
+        .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
         .bill-bold { font-weight: 700; }
-        .bill-divider { border-top: 1px solid #ddd; margin: 10px 0; }
+        .bill-divider { border-top: 2px solid #000; margin: 12px 0; }
         .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 600; font-size: 12px; }
-        .bill-table td { padding: 4px 2px; border-bottom: 1px solid #eee; }
+        .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; }
+        .bill-table th:not(:first-child) { text-align: right; }
+        .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+        .bill-table td:not(:first-child) { text-align: right; }
+        .bill-table td:last-child { font-weight: 700; }
         .bill-totals { margin: 8px 0; font-size: 13px; }
-        .bill-total-row { display: flex; justify-content: space-between; padding: 2px 0; }
-        .bill-grand-total { font-size: 18px; font-weight: 700; border-top: 2px solid #000; padding-top: 6px; margin-top: 2px; }
-        .bill-words { font-size: 11px; color: #666; font-style: italic; text-align: center; margin: 6px 0; }
-        .bill-footer { font-size: 13px; font-weight: 600; text-align: center; margin-top: 8px; padding-top: 6px; border-top: 1px dashed #ccc; }
+        .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
+        .bill-grand-total { font-size: 18px; font-weight: 800; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
+        .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
+        .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
+        .qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed #000; }
+        .qr-section canvas { border-radius: 8px; }
+        .qr-section-label { font-size: 12px; color: #444; font-weight: 700; }
+        .bill-url-text { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
 
         @media print {
           .bill-container { width: 72mm; padding: 3mm 2mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45; border-radius: 0; box-shadow: none; max-width: none; }
@@ -153,6 +178,7 @@ export default function BillContent({ data: raw }: { data: unknown }) {
           .bill-grand-total { font-size: 16px; padding-top: 4px; }
           .bill-words { font-size: 10px; }
           .bill-footer { font-size: 12px; }
+          .qr-section { display: none !important; }
         }
       `}</style>
     </>
