@@ -48,7 +48,7 @@ function getBillStyles(format: "thermal" | "a4") {
       .no-print { display: none !important; }
       .bill-wrapper { max-width: none; padding: 0; margin: 0; }
       .bill-container {
-        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 1mm 1.5mm; width: 78mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0;"}
+        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 0; width: 80mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0;"}
         color: #000; background: none;
       }
       .bill-header { font-size: ${isA4 ? "24px" : "20px"}; font-weight: 900; letter-spacing: 1px; }
