@@ -5,70 +5,59 @@ import { useParams } from "next/navigation";
 import { getPublicBillData } from "@/lib/actions/bill";
 import QRCode from "qrcode";
 
-function getBillStyles(format: "thermal" | "a4") {
-  const isA4 = format === "a4";
-  return `
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { background: #f3f4f6; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
-    .bill-wrapper { max-width: 420px; margin: 0 auto; padding: 12px 8px; }
-    .bill-container { background: white; border-radius: 16px; padding: 20px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; line-height: 1.6; color: #000; }
-    .bill-header { font-size: 22px; font-weight: 900; text-align: center; letter-spacing: 0.5px; margin-bottom: 1px; }
-    .bill-addr { font-size: 12px; color: #444; text-align: center; font-weight: 600; line-height: 1.4; }
-    .bill-divider { border: none; border-top: 2px solid #000; margin: 10px 0; }
-    .bill-divider-dashed { border: none; border-top: 1px dashed #000; margin: 6px 0; }
-    .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
-    .bill-meta .label { color: #555; }
-    .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; text-align: left; white-space: nowrap; }
-    .bill-table th:not(:first-child) { text-align: right; }
-    .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-    .bill-table td:not(:first-child) { text-align: right; }
-    .bill-table td:last-child { font-weight: 700; }
-    .bill-totals { margin: 6px 0; font-size: 13px; }
-    .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
-    .bill-grand-total { font-size: 20px; font-weight: 900; border-top: 2px solid #000; padding-top: 8px; margin-top: 6px; }
-    .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
-    .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
-    .bill-paid { background: #dcfce7; color: #166534; text-align: center; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 13px; margin-bottom: 12px; }
-    .qr-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #000; }
-    .qr-section canvas { border-radius: 8px; }
-    .bill-link { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
-    .bill-link-label { font-size: 11px; color: #444; font-weight: 700; text-align: center; }
-    .print-btn { display: block; width: 100%; padding: 14px; background: #111827; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
-    .print-btn:active { opacity: 0.8; }
-    .print-btn-outline { display: block; width: 100%; padding: 14px; border: 2px solid #111827; color: #111827; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; background: white; }
-    .print-btn-outline:active { opacity: 0.8; }
-    .no-print { display: block; }
-    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
-    .btn-row .print-btn { margin-top: 0; flex: 1; }
-    .btn-row .print-btn-outline { margin-top: 0; flex: 1; }
-    @media print {
-      @page { size: ${isA4 ? "A4" : "90mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
-      body { background: white; padding: 0; margin: 0; }
-      .no-print { display: none !important; }
-      .bill-wrapper { max-width: none; padding: 0; margin: 0; }
-      .bill-container {
-        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 0; width: 90mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0;"}
-        color: #000; background: none;
-      }
-      .bill-header { font-size: ${isA4 ? "24px" : "20px"}; font-weight: 900; letter-spacing: 1px; }
-      .bill-addr { font-size: ${isA4 ? "14px" : "10px"}; color: #333; font-weight: 600; }
-      .bill-divider { border-top: ${isA4 ? "2px solid" : "1px dashed"} #000; margin: ${isA4 ? "14px" : "3px"} 0; }
-      .bill-divider-dashed { border-top: 1px dashed #666; margin: 3px 0; }
-      .bill-meta { font-size: ${isA4 ? "14px" : "10px"}; padding: ${isA4 ? "3px 0" : "1px 0"}; font-weight: 600; }
-      .bill-table { font-size: ${isA4 ? "14px" : "11px"}; width: 100%; }
-      .bill-table th { padding: ${isA4 ? "8px 4px" : "2px 1px"}; font-size: ${isA4 ? "13px" : "10px"}; font-weight: 700; }
-      .bill-table td { padding: ${isA4 ? "6px 4px" : "2px 1px"}; font-weight: 600; }
-      .bill-totals { font-size: ${isA4 ? "14px" : "11px"}; margin: ${isA4 ? "8px 0" : "3px 0"}; }
-      .bill-total-row { padding: ${isA4 ? "4px 0" : "1.5px 0"}; font-weight: 600; }
-      .bill-grand-total { font-size: ${isA4 ? "22px" : "16px"}; font-weight: 900; border-top: 2px solid #000; padding-top: ${isA4 ? "12px" : "5px"}; margin-top: ${isA4 ? "8px" : "3px"}; }
-      .bill-words { font-size: ${isA4 ? "13px" : "9px"}; color: #444; }
-      .bill-footer { font-size: ${isA4 ? "14px" : "11px"}; font-weight: 700; margin-top: ${isA4 ? "12px" : "3px"}; padding-top: ${isA4 ? "12px" : "3px"}; }
-      .qr-section { display: none !important; }
-      .bill-paid { display: none !important; }
-    }
-  `;
-}
+const BILL_STYLES = `
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #f3f4f6; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+  .bill-wrapper { max-width: 420px; margin: 0 auto; padding: 12px 8px; }
+  .bill-container { background: white; border-radius: 16px; padding: 20px 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 14px; line-height: 1.6; color: #000; }
+  .bill-header { font-size: 22px; font-weight: 900; text-align: center; letter-spacing: 0.5px; margin-bottom: 1px; }
+  .bill-addr { font-size: 12px; color: #444; text-align: center; font-weight: 600; line-height: 1.4; }
+  .bill-divider { border: none; border-top: 2px solid #000; margin: 10px 0; }
+  .bill-divider-dashed { border: none; border-top: 1px dashed #000; margin: 6px 0; }
+  .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
+  .bill-meta .label { color: #555; }
+  .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; text-align: left; white-space: nowrap; }
+  .bill-table th:not(:first-child) { text-align: right; }
+  .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+  .bill-table td:not(:first-child) { text-align: right; }
+  .bill-table td:last-child { font-weight: 700; }
+  .bill-totals { margin: 6px 0; font-size: 13px; }
+  .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
+  .bill-grand-total { font-size: 20px; font-weight: 900; border-top: 2px solid #000; padding-top: 8px; margin-top: 6px; }
+  .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
+  .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
+  .bill-paid { background: #dcfce7; color: #166534; text-align: center; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 13px; margin-bottom: 12px; }
+  .qr-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #000; }
+  .qr-section canvas { border-radius: 8px; }
+  .bill-link { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
+  .bill-link-label { font-size: 11px; color: #444; font-weight: 700; text-align: center; }
+  .print-btn { display: block; width: 100%; padding: 14px; background: #111827; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
+  .print-btn:active { opacity: 0.8; }
+  .no-print { display: block; }
+  @media print {
+    @page { size: 90mm 297mm; margin: 0; }
+    body { background: white; padding: 0; margin: 0; }
+    .no-print { display: none !important; }
+    .bill-wrapper { max-width: none; padding: 0; margin: 0; }
+    .bill-container { padding: 0; width: 90mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0; color: #000; background: none; }
+    .bill-header { font-size: 20px; font-weight: 900; letter-spacing: 1px; }
+    .bill-addr { font-size: 10px; color: #333; font-weight: 600; }
+    .bill-divider { border-top: 1px dashed #000; margin: 3px 0; }
+    .bill-divider-dashed { border-top: 1px dashed #666; margin: 3px 0; }
+    .bill-meta { font-size: 10px; padding: 1px 0; font-weight: 600; }
+    .bill-table { font-size: 11px; width: 100%; }
+    .bill-table th { padding: 2px 1px; font-size: 10px; font-weight: 700; }
+    .bill-table td { padding: 2px 1px; font-weight: 600; }
+    .bill-totals { font-size: 11px; margin: 3px 0; }
+    .bill-total-row { padding: 1.5px 0; font-weight: 600; }
+    .bill-grand-total { font-size: 16px; font-weight: 900; border-top: 2px solid #000; padding-top: 5px; margin-top: 3px; }
+    .bill-words { font-size: 9px; color: #444; }
+    .bill-footer { font-size: 11px; font-weight: 700; margin-top: 3px; padding-top: 3px; }
+    .qr-section { display: none !important; }
+    .bill-paid { display: none !important; }
+  }
+`;
 
 function Loading() {
   return (
@@ -99,24 +88,8 @@ export default function PublicBillPage() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [format, setFormat] = useState<"thermal" | "a4">("thermal");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [billUrl, setBillUrl] = useState("");
-
-  function handleA4Print() {
-    setFormat("a4");
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => window.print());
-    });
-  }
-
-  useEffect(() => {
-    if (format === "a4") {
-      const onAfterPrint = () => setFormat("thermal");
-      window.addEventListener("afterprint", onAfterPrint, { once: true });
-      return () => window.removeEventListener("afterprint", onAfterPrint);
-    }
-  }, [format]);
 
   useEffect(() => {
     getPublicBillData(orderId).then((r) => {
@@ -236,16 +209,13 @@ export default function PublicBillPage() {
         </div>
       </div>
 
-      <div className="btn-row no-print">
+      <div className="no-print" style={{marginTop: 12}}>
         <button className="print-btn" onClick={() => window.print()}>
           🖨️ Print
         </button>
-        <button className="print-btn-outline" onClick={handleA4Print}>
-          📄 Save as PDF (A4)
-        </button>
       </div>
 
-      <style dangerouslySetInnerHTML={{ __html: getBillStyles(format) }} />
+      <style dangerouslySetInnerHTML={{ __html: BILL_STYLES }} />
     </div>
   );
 }
