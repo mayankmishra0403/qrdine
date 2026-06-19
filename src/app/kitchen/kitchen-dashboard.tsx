@@ -111,14 +111,16 @@ export function KitchenDashboard() {
     };
   }, [fetchOrders, connected]);
 
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   useEffect(() => {
     if (!lastEvent) return;
     if (lastEvent.type === "new-order") {
       playNewOrderSound();
-      fetchOrders();
-    } else if (lastEvent.type === "status-update" || lastEvent.type === "order-deleted") {
-      fetchOrders();
     }
+    if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+    fetchTimeoutRef.current = setTimeout(() => fetchOrders(), 400);
+    return () => { if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current); };
   }, [lastEvent, fetchOrders]);
 
   useEffect(() => {
@@ -265,6 +267,13 @@ export function KitchenDashboard() {
                   )}
 
                   <div className="flex gap-1.5 pt-1">
+                    <button
+                      onClick={() => window.open(`/kot/${order.id}?print=true`, "_blank")}
+                      className="text-[10px] px-1.5 py-1 rounded border border-gray-300 hover:bg-gray-100"
+                      title="Print KOT"
+                    >
+                      🖨️
+                    </button>
                     {statusFlow[order.status]?.map((nextStatus) => (
                       <Button
                         key={nextStatus}

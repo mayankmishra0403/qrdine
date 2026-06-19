@@ -140,6 +140,7 @@ export async function placeOrder(
         orderId: order.id,
         tableNumber: table.tableNumber,
         itemCount: order.items.length,
+        total: Number(order.total),
         status: order.status,
       }).catch(() => {});
       publish(CHANNELS.POS_TABLE_UPDATE, {

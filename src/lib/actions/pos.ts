@@ -204,6 +204,7 @@ export async function createPosOrder(data: {
         orderId: order.id,
         tableNumber: order.table?.tableNumber,
         itemCount: orderItems.length,
+        total: Number(order.total),
         status: "confirmed",
       }).catch(() => {});
       if (orderType === "dine-in") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getWaiterAppData, addWaiterAppItems, requestWaiterBill, markTakeawayReady } from "@/lib/actions/waiter-app";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ function OrdersContent() {
   const [activeTab, setActiveTab] = useState("all");
   const [addMore, setAddMore] = useState<Record<string, Array<{ name: string; price: number; qty: number }>>>({});
   const { lastEvent, connected } = useEvents();
+  const fetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const fetch = useCallback(async () => {
     const r = await getWaiterAppData();
@@ -46,7 +47,8 @@ function OrdersContent() {
   useEffect(() => {
     if (!lastEvent) return;
     if (["order-ready", "table-update", "status-update", "new-order"].includes(lastEvent.type)) {
-      fetch();
+      if (fetchTimeoutRef.current) clearTimeout(fetchTimeoutRef.current);
+      fetchTimeoutRef.current = setTimeout(() => fetch(), 400);
       if (lastEvent.type === "order-ready") {
         const tableInfo = lastEvent.tableNumber ? `Table ${lastEvent.tableNumber}` : "Takeaway";
         toast("🛎️ Order ready!", {
@@ -123,7 +125,10 @@ function OrdersContent() {
                   await markTakeawayReady(order.id); toast.success("Marked ready!"); await fetch();
                 }}>✅ Ready</Button>
               )}
-              <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => router.push(`/waiter-app/bill/${order.id}`)}>🖨️ Print</Button>
+              <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => window.open(`/kot/${order.id}?print=true`, "_blank")}>
+                🖨️ KOT
+              </Button>
+              <Button size="sm" variant="outline" className="text-[10px] h-7" onClick={() => router.push(`/waiter-app/bill/${order.id}`)}>🧾 Print</Button>
             </div>
           </div>
         ))}

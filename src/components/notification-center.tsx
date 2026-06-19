@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useEvents } from "@/hooks/use-events";
 
 type Notification = {
@@ -31,6 +31,7 @@ export function NotificationCenter() {
 
   useEffect(() => {
     if (!lastEvent) return;
+    playNotificationSound();
     const label = NOTIFICATION_LABELS[lastEvent.type];
     const notif: Notification = {
       id: `${lastEvent.type}-${Date.now()}`,
@@ -136,22 +137,41 @@ export function NotificationCenter() {
 
 function formatMessage(event: Record<string, unknown>): string {
   const type = event.type as string;
+  const orderId = (event.orderId as string)?.slice(-6).toUpperCase() || "";
+  const table = event.tableNumber ? `Table ${event.tableNumber}` : "Takeaway";
   switch (type) {
     case "new-order":
-      return `Table ${event.tableNumber || "?"} — ${event.itemCount || 0} items`;
+      return `${table} • ${event.itemCount || 0} items • ₹${Number(event.total || 0).toFixed(2)}`;
     case "status-update":
-      return `Order status changed to "${event.status}"`;
+      return `#${orderId} → ${(event.status as string)?.toUpperCase()}`;
     case "order-deleted":
-      return `Order has been cancelled`;
+      return `#${orderId} • Cancelled`;
     case "order-ready":
-      return `Table ${event.tableNumber || "Takeaway"} — ready for service`;
+      return `${table} • Ready for pickup/service`;
     case "table-update":
-      return `Table status: ${event.status}`;
+      return `${table} → ${event.status}`;
     case "owner-alert":
-      return (event.message as string) || "";
+      return (event.message as string) || "System alert";
     default:
       return JSON.stringify(event);
   }
+}
+
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.setValueAtTime(660, ctx.currentTime);
+    osc.frequency.setValueAtTime(990, ctx.currentTime + 0.12);
+    osc.frequency.setValueAtTime(1320, ctx.currentTime + 0.24);
+    gain.gain.setValueAtTime(0.25, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.5);
+  } catch {}
 }
 
 function formatTime(ts: number): string {

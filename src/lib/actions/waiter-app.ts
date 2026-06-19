@@ -168,6 +168,7 @@ export async function createWaiterAppOrder(data: {
         orderId: order.id,
         tableNumber: order.table?.tableNumber,
         itemCount: orderItems.length,
+        total: subtotal,
         status: "confirmed",
       }).catch(() => {});
       if (order.table) {

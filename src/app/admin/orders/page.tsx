@@ -115,6 +115,15 @@ export default async function OrdersPage() {
                     Cancel
                   </OrderStatusButton>
                 )}
+                {!["served", "cancelled"].includes(order.status) && (
+                  <a
+                    href={`/kot/${order.id}?print=true`}
+                    target="_blank"
+                    className="inline-flex items-center justify-center rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                  >
+                    🖨️ KOT
+                  </a>
+                )}
                 {["served", "ready"].includes(order.status) && (
                   <a
                     href={`/admin/bill/${order.id}`}

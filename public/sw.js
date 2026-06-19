@@ -78,7 +78,14 @@ self.addEventListener("push", (event) => {
       data: data.data || {},
       vibrate: [200, 100, 200],
     }
-    event.waitUntil(self.registration.showNotification(title, options))
+    event.waitUntil(
+      self.registration.showNotification(title, options).then(() => {
+        return self.clients.matchAll({ type: "window", includeUncontrolled: true })
+          .then(clients => {
+            clients.forEach(client => client.postMessage({ type: "notification", ...data }))
+          })
+      })
+    )
   } catch {
     const text = event.data.text()
     event.waitUntil(self.registration.showNotification(text))
