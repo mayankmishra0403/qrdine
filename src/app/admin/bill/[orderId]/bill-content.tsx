@@ -129,7 +129,7 @@ export default function BillContent({ data: raw }: { data: unknown }) {
           <div className="bill-meta text-center">
             Paid via {data.payment.method.toUpperCase()}
             {data.payment.reference ? ` (${data.payment.reference})` : ""}
-            {data.payment.amount ? ` · ₹${data.payment.amount.toFixed(2)}` : ""}
+            {data.payment.amount != null ? ` · ₹${Number(data.payment.amount).toFixed(2)}` : ""}
           </div>
         )}
 

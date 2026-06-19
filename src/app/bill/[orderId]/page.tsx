@@ -222,7 +222,7 @@ export default function PublicBillPage() {
           <div className="bill-meta text-center" style={{marginTop: 6}}>
             Paid via {bill.payment.method.toUpperCase()}
             {bill.payment.reference ? ` (Ref: ${bill.payment.reference})` : ""}
-            {bill.payment.amount ? ` · ₹{bill.payment.amount.toFixed(2)}` : ""}
+            {bill.payment.amount != null ? ` · ₹${Number(bill.payment.amount).toFixed(2)}` : ""}
           </div>
         )}
 
