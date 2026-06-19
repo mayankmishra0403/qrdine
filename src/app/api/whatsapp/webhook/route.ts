@@ -32,21 +32,33 @@ export async function POST(req: NextRequest) {
       const state = data?.state as string | undefined;
       console.log(`[Evolution Webhook] Instance ${instance}: state=${state}`);
 
-      const instanceName = instance.replace(/^ritam-bharat-pos-?/, "");
-      const restaurantId = instanceName || (data?.restaurantId as string) || "";
+      let restaurantId = (data?.restaurantId as string) || "";
+      if (!restaurantId) {
+        const envName = process.env.EVOLUTION_INSTANCE_NAME || "ritam-bharat-pos";
+        const suffix = instance.replace(new RegExp(`^${envName}-?`), "");
+        restaurantId = suffix || "";
+      }
+      if (!restaurantId) {
+        const first = await prisma.restaurant.findFirst({ select: { id: true } });
+        restaurantId = first?.id || "";
+      }
 
-      if (state === "open") {
-        await prisma.whatsAppConfig.updateMany({
-          where: { restaurantId },
-          data: { isConnected: true },
-        });
-        console.log(`[Evolution Webhook] DB updated: connected=true for restaurantId=${restaurantId}`);
-      } else if (state === "close" || state === "disconnected" || state === "connecting") {
-        await prisma.whatsAppConfig.updateMany({
-          where: { restaurantId },
-          data: { isConnected: false },
-        });
-        console.log(`[Evolution Webhook] DB updated: connected=false for restaurantId=${restaurantId}`);
+      if (restaurantId) {
+        if (state === "open") {
+          await prisma.whatsAppConfig.updateMany({
+            where: { restaurantId },
+            data: { isConnected: true },
+          });
+          console.log(`[Evolution Webhook] DB updated: connected=true for restaurantId=${restaurantId}`);
+        } else if (state === "close" || state === "disconnected" || state === "connecting") {
+          await prisma.whatsAppConfig.updateMany({
+            where: { restaurantId },
+            data: { isConnected: false },
+          });
+          console.log(`[Evolution Webhook] DB updated: connected=false for restaurantId=${restaurantId}`);
+        }
+      } else {
+        console.warn("[Evolution Webhook] Could not determine restaurantId from instance name or DB");
       }
     }
 
