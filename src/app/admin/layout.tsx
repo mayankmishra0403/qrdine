@@ -4,6 +4,8 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LogoutButton } from "@/components/logout-button";
+import { PwaRegister } from "@/components/pwa-register";
+import { NotificationCenter } from "@/components/notification-center";
 
 const navLinks = [
   { href: "/admin", label: "Dashboard" },
@@ -37,6 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
+      <PwaRegister />
       {/* Mobile header */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b flex items-center justify-between px-3 py-2.5">
         <button
@@ -51,7 +54,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </svg>
         </button>
         <span className="text-sm font-bold">Ritam Bharat POS</span>
-        <LogoutButton className="text-xs" />
+        <div className="flex items-center gap-1">
+          <NotificationCenter />
+          <LogoutButton className="text-xs" />
+        </div>
       </div>
 
       {/* Mobile overlay */}
@@ -87,7 +93,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       {/* Desktop sidebar */}
       <nav className="hidden md:flex fixed left-0 top-0 bottom-0 w-64 border-r bg-muted/30 p-4 flex-col gap-2 overflow-y-auto">
-        <h2 className="font-bold text-lg mb-4">Ritam Bharat POS</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="font-bold text-lg">Ritam Bharat POS</h2>
+          <NotificationCenter />
+        </div>
         {navLinks.map((link, i) => {
           if ("type" in link) {
             return <p key={i} className="text-[10px] text-muted-foreground mt-2 mb-0.5">{link.label}</p>;

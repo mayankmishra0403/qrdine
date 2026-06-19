@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "@/components/toaster";
-import { PwaRegister } from "@/components/pwa-register";
 import { InstallPrompt } from "@/components/install-prompt";
 import { SoundProviderWrapper } from "@/components/sound-provider-wrapper";
 import "./globals.css";
@@ -46,7 +45,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         {children}
         <Toaster />
-        <PwaRegister />
         <InstallPrompt />
         <SoundProviderWrapper />
       </body>

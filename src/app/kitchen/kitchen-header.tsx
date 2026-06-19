@@ -1,6 +1,7 @@
 "use client";
 
 import { LogoutButton } from "@/components/logout-button";
+import { NotificationCenter } from "@/components/notification-center";
 import { usePathname } from "next/navigation";
 
 export function KitchenHeader() {
@@ -12,7 +13,8 @@ export function KitchenHeader() {
       <div className="flex items-center gap-3">
         <h1 className="text-sm font-bold tracking-tight">👨‍🍳 {title}</h1>
       </div>
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-1">
+        <NotificationCenter />
         <LogoutButton className="text-xs text-gray-300 hover:text-white" />
       </div>
     </header>
