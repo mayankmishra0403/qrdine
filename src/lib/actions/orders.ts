@@ -9,6 +9,7 @@ import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 import { sendPushToRole } from "@/lib/actions/push";
+import { publish, CHANNELS } from "@/lib/redis";
 
 type CartItem = {
   itemId: string;
@@ -134,6 +135,17 @@ export async function placeOrder(
     if (table.restaurantId) {
       const tableStr = table.tableNumber ? `Table ${table.tableNumber}` : "Takeaway";
       sendPushToRole(table.restaurantId, "kitchen", `🍳 New Order`, `${tableStr} — ${order.items.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+
+      publish(CHANNELS.KDS_NEW_ORDER, {
+        orderId: order.id,
+        tableNumber: table.tableNumber,
+        itemCount: order.items.length,
+        status: order.status,
+      }).catch(() => {});
+      publish(CHANNELS.POS_TABLE_UPDATE, {
+        tableId: table.id,
+        status: "occupied",
+      }).catch(() => {});
     }
 
     let whatsappSent = false;
@@ -205,12 +217,24 @@ export async function updateOrderStatus(orderId: string, status: string) {
     revalidatePath("/admin/orders");
 
     if (order.restaurantId) {
+      const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
+      publish(CHANNELS.KDS_STATUS_UPDATE, {
+        orderId,
+        status,
+        tableNumber: order.table?.tableNumber,
+      }).catch(() => {});
+
       if (status === "confirmed") {
         sendPushToRole(order.restaurantId, "kitchen", `✅ Order Confirmed`, `Order #${order.id.slice(-6)} confirmed`, { url: "/kitchen", orderId: order.id }).catch(() => {});
       } else if (status === "ready") {
-        const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
         sendPushToRole(order.restaurantId, "waiter", `🛎️ Order Ready`, `${tableStr} — Order #${order.id.slice(-6)} is ready`, { url: "/waiter-app/orders", orderId: order.id }).catch(() => {});
         sendPushToRole(order.restaurantId, "admin", `🛎️ Order Ready`, `${tableStr} — Order #${order.id.slice(-6)} is ready`, { url: "/admin/orders", orderId: order.id }).catch(() => {});
+
+        publish(CHANNELS.WAITER_ORDER_READY, {
+          orderId,
+          tableNumber: order.table?.tableNumber,
+          status: "ready",
+        }).catch(() => {});
       }
     }
 

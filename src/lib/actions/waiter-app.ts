@@ -7,6 +7,7 @@ import { handleActionError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { sendPushToRole, sendPushToAll } from "@/lib/actions/push";
+import { publish, CHANNELS } from "@/lib/redis";
 
 export async function getWaiterAppData() {
   try {
@@ -162,6 +163,19 @@ export async function createWaiterAppOrder(data: {
       const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
       sendPushToRole(order.restaurantId, "kitchen", `🍳 New Order`, `${tableStr} — ${orderItems.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
       sendPushToRole(order.restaurantId, "waiter", `📋 New Order`, `${tableStr} · ₹${subtotal.toFixed(0)}`, { url: "/waiter-app/orders", orderId: order.id }).catch(() => {});
+
+      publish(CHANNELS.KDS_NEW_ORDER, {
+        orderId: order.id,
+        tableNumber: order.table?.tableNumber,
+        itemCount: orderItems.length,
+        status: "confirmed",
+      }).catch(() => {});
+      if (order.table) {
+        publish(CHANNELS.POS_TABLE_UPDATE, {
+          tableId: order.table.id,
+          status: "occupied",
+        }).catch(() => {});
+      }
     }
 
     if (fullPhone && (await isWhatsAppConfigured())) {
@@ -220,6 +234,12 @@ export async function addWaiterAppItems(orderId: string, items: Array<{ itemId: 
     }
 
     revalidatePath("/waiter-app");
+
+    publish(CHANNELS.KDS_STATUS_UPDATE, {
+      orderId,
+      status: "items-added",
+    }).catch(() => {});
+
     return { success: true };
   } catch (error) {
     return { success: false, error: handleActionError(error).error };
@@ -271,6 +291,17 @@ export async function markTakeawayReady(orderId: string) {
     }
 
     revalidatePath("/waiter-app");
+
+    publish(CHANNELS.KDS_STATUS_UPDATE, {
+      orderId,
+      status: "ready",
+    }).catch(() => {});
+    publish(CHANNELS.WAITER_ORDER_READY, {
+      orderId,
+      tableNumber: null,
+      status: "ready",
+    }).catch(() => {});
+
     return { success: true };
   } catch (error) {
     return { success: false, error: handleActionError(error).error };

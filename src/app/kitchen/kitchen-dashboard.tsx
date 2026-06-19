@@ -5,6 +5,7 @@ import { updateOrderStatus } from "@/lib/actions/orders";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useEvents } from "@/hooks/use-events";
 
 type OrderItem = {
   id: string;
@@ -83,17 +84,13 @@ export function KitchenDashboard() {
   const [loading, setLoading] = useState(true);
   const [now, setNow] = useState(Date.now());
   const [fullscreen, setFullscreen] = useState(false);
-  const prevOrderCount = useRef(0);
+  const { lastEvent, connected } = useEvents();
 
   const fetchOrders = useCallback(async () => {
     try {
       const res = await fetch("/api/orders/active");
       if (res.ok) {
         const data: Order[] = await res.json();
-        if (data.length > prevOrderCount.current) {
-          playNewOrderSound();
-        }
-        prevOrderCount.current = data.length;
         setOrders(data);
       }
     } catch {
@@ -104,13 +101,25 @@ export function KitchenDashboard() {
 
   useEffect(() => {
     fetchOrders();
-    const interval = setInterval(fetchOrders, 5000);
     const timer = setInterval(() => setNow(Date.now()), 1000);
+    const fallback = setInterval(() => {
+      if (!connected) fetchOrders();
+    }, 30000);
     return () => {
-      clearInterval(interval);
       clearInterval(timer);
+      clearInterval(fallback);
     };
-  }, [fetchOrders]);
+  }, [fetchOrders, connected]);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (lastEvent.type === "new-order") {
+      playNewOrderSound();
+      fetchOrders();
+    } else if (lastEvent.type === "status-update" || lastEvent.type === "order-deleted") {
+      fetchOrders();
+    }
+  }, [lastEvent, fetchOrders]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {

@@ -8,6 +8,7 @@ import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 import { sendPushToRole, sendPushToAll } from "@/lib/actions/push";
+import { publish, CHANNELS } from "@/lib/redis";
 import { numberToWords } from "@/lib/number-to-words";
 
 export async function getPosData() {
@@ -198,6 +199,19 @@ export async function createPosOrder(data: {
     if (order.restaurantId) {
       const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : orderType;
       sendPushToRole(order.restaurantId, "kitchen", `🍳 New POS Order`, `${tableStr} — ${orderItems.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+
+      publish(CHANNELS.KDS_NEW_ORDER, {
+        orderId: order.id,
+        tableNumber: order.table?.tableNumber,
+        itemCount: orderItems.length,
+        status: "confirmed",
+      }).catch(() => {});
+      if (orderType === "dine-in") {
+        publish(CHANNELS.POS_TABLE_UPDATE, {
+          tableId: data.tableId,
+          status: "occupied",
+        }).catch(() => {});
+      }
     }
 
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
@@ -349,6 +363,19 @@ export async function processPayment(data: {
       const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
       sendPushToRole(order.restaurantId, "admin", `💰 Payment Received`, `${tableStr} — ₹${Number(data.amount).toFixed(0)} via ${data.method}`, { url: "/admin/orders", orderId: order.id }).catch(() => {});
       sendPushToRole(order.restaurantId, "waiter", `✅ Table Closed`, `${tableStr} — Payment completed`, { url: "/waiter-app", orderId: order.id }).catch(() => {});
+
+      publish(CHANNELS.OWNER_ALERT, {
+        message: `Payment received: ₹${Number(data.amount).toFixed(0)} via ${data.method}`,
+        orderId: order.id,
+        tableNumber: order.table?.tableNumber,
+        severity: "info",
+      }).catch(() => {});
+      if (order.tableId) {
+        publish(CHANNELS.POS_TABLE_UPDATE, {
+          tableId: order.tableId,
+          status: "vacant",
+        }).catch(() => {});
+      }
     }
 
     revalidatePath("/admin/pos");

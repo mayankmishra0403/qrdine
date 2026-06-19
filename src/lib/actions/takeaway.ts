@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage } from "@/lib/actions/whatsapp";
+import { publish, CHANNELS } from "@/lib/redis";
 
 export async function getTakeawayData() {
   try {
@@ -135,6 +136,13 @@ export async function createTakeawayOrder(data: {
       );
     }
 
+    publish(CHANNELS.KDS_NEW_ORDER, {
+      orderId: order.id,
+      tableNumber: null,
+      itemCount: data.items.length,
+      status: "confirmed",
+    }).catch(() => {});
+
     revalidatePath("/admin/takeaway");
     return { success: true, data: serialize(order) };
   } catch (error) {
@@ -176,6 +184,12 @@ export async function addTakeawayItems(orderId: string, items: Array<{ itemId: s
         `➕ *Items added to your takeaway order!*\n\n── Added ──\n${itemLines}\n─────────────\n*New Total: ₹${newSubtotal.toFixed(2)}*`
       );
     }
+
+    publish(CHANNELS.KDS_STATUS_UPDATE, {
+      orderId,
+      status: "items-added",
+      tableNumber: null,
+    }).catch(() => {});
 
     revalidatePath("/admin/takeaway");
     return { success: true };
@@ -236,6 +250,17 @@ export async function markTakeawayReady(orderId: string) {
         `✅ *Your takeaway order is ready for pickup!*\n\nOrder from ${order.restaurant.name} is ready.\nPlease collect at the counter.\n\nTotal: ₹${Number(order.total).toFixed(2)}\n\n🧾 Bill: ${tunnelUrl}/admin/bill/${orderId}`
       );
     }
+
+    publish(CHANNELS.KDS_STATUS_UPDATE, {
+      orderId,
+      status: "ready",
+      tableNumber: null,
+    }).catch(() => {});
+    publish(CHANNELS.WAITER_ORDER_READY, {
+      orderId,
+      tableNumber: null,
+      status: "ready",
+    }).catch(() => {});
 
     revalidatePath("/admin/takeaway");
     return { success: true };

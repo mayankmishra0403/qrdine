@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { getWaiterAppData, requestWaiterBill } from "@/lib/actions/waiter-app";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { useEvents } from "@/hooks/use-events";
 
 type OrderItem = { name: string; quantity: number; unitPrice: number };
 
@@ -24,6 +25,7 @@ export default function WaiterAppHome() {
     orders: OrderSummary[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
+  const { lastEvent, connected } = useEvents();
 
   const fetch = useCallback(async () => {
     const r = await getWaiterAppData();
@@ -31,7 +33,26 @@ export default function WaiterAppHome() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetch(); const i = setInterval(fetch, 10000); return () => clearInterval(i); }, [fetch]);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  useEffect(() => {
+    const fallback = setInterval(() => {
+      if (!connected) fetch();
+    }, 30000);
+    return () => clearInterval(fallback);
+  }, [fetch, connected]);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (lastEvent.type === "order-ready" || lastEvent.type === "table-update" || lastEvent.type === "status-update") {
+      fetch();
+      if (lastEvent.type === "order-ready") {
+        toast("🛎️ Order ready!", {
+          description: `Order is ready for pickup`,
+        });
+      }
+    }
+  }, [lastEvent, fetch]);
 
   const occupiedTables = data?.tables.filter((t) => t.status === "occupied").length || 0;
   const vacantTables = data?.tables.filter((t) => t.status === "vacant").length || 0;

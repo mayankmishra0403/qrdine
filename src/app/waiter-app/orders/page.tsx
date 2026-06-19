@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { Suspense } from "react";
+import { useEvents } from "@/hooks/use-events";
 
 type OrderSummary = {
   id: string; status: string; type: string; total: number;
@@ -25,6 +26,7 @@ function OrdersContent() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("all");
   const [addMore, setAddMore] = useState<Record<string, Array<{ name: string; price: number; qty: number }>>>({});
+  const { lastEvent, connected } = useEvents();
 
   const fetch = useCallback(async () => {
     const r = await getWaiterAppData();
@@ -32,7 +34,27 @@ function OrdersContent() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { fetch(); const i = setInterval(fetch, 8000); return () => clearInterval(i); }, [fetch]);
+  useEffect(() => { fetch(); }, [fetch]);
+
+  useEffect(() => {
+    const fallback = setInterval(() => {
+      if (!connected) fetch();
+    }, 30000);
+    return () => clearInterval(fallback);
+  }, [fetch, connected]);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    if (["order-ready", "table-update", "status-update", "new-order"].includes(lastEvent.type)) {
+      fetch();
+      if (lastEvent.type === "order-ready") {
+        const tableInfo = lastEvent.tableNumber ? `Table ${lastEvent.tableNumber}` : "Takeaway";
+        toast("🛎️ Order ready!", {
+          description: `${tableInfo} — ready for service`,
+        });
+      }
+    }
+  }, [lastEvent, fetch]);
 
   const filtered = activeTab === "all" ? orders : orders.filter((o) => o.type === activeTab);
   const selectedOrder = selectedId ? orders.find((o) => o.id === selectedId) : null;
