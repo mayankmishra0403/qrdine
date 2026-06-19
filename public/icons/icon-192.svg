@@ -1,5 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="32" fill="#1f2937"/>
-  <text x="96" y="112" font-family="system-ui" font-size="80" font-weight="bold" fill="white" text-anchor="middle">RB</text>
-  <text x="96" y="148" font-family="system-ui" font-size="28" font-weight="300" fill="#9ca3af" text-anchor="middle">WAITER</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192"><rect width="192" height="192" fill="#1f2937" rx="32"/><text x="96" y="112" fill="#fff" font-family="system-ui" font-size="80" font-weight="bold" text-anchor="middle">RB</text><text x="96" y="148" fill="#9ca3af" font-family="system-ui" font-size="28" font-weight="300" text-anchor="middle">WAITER</text></svg>
