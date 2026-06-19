@@ -43,12 +43,12 @@ function getBillStyles(format: "thermal" | "a4") {
     .btn-row .print-btn { margin-top: 0; flex: 1; }
     .btn-row .print-btn-outline { margin-top: 0; flex: 1; }
     @media print {
-      @page { size: ${isA4 ? "A4" : "80mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
+      @page { size: ${isA4 ? "A4" : "90mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
       body { background: white; padding: 0; margin: 0; }
       .no-print { display: none !important; }
       .bill-wrapper { max-width: none; padding: 0; margin: 0; }
       .bill-container {
-        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 0; width: 80mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0;"}
+        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 0; width: 90mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; margin: 0;"}
         color: #000; background: none;
       }
       .bill-header { font-size: ${isA4 ? "24px" : "20px"}; font-weight: 900; letter-spacing: 1px; }

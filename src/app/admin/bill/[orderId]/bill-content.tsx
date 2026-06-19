@@ -161,7 +161,7 @@ function getAdminBillStyles(format: "thermal" | "a4") {
   return `
     .no-print { display: block; }
     @media print { .no-print { display: none !important; } body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-    @page { size: ${isA4 ? "A4" : "80mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
+    @page { size: ${isA4 ? "A4" : "90mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body { background: #f3f4f6 !important; margin: 0 !important; padding: 16px !important; font-family: system-ui, -apple-system, sans-serif; }
     nav, header, footer, .fixed, .md\\:hidden, .md\\:flex, [class*="sidebar"], [class*="navbar"], aside { display: none !important; }
@@ -194,7 +194,7 @@ function getAdminBillStyles(format: "thermal" | "a4") {
     @media print {
       header { display: none !important; }
       .bill-container {
-        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; border-radius: 0; box-shadow: none; max-width: none;" : "padding: 0; width: 80mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; max-width: none; margin: 0;"}
+        ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; border-radius: 0; box-shadow: none; max-width: none;" : "padding: 0; width: 90mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; max-width: none; margin: 0;"}
         color: #000; background: none;
       }
       .bill-header { font-size: ${isA4 ? "24px" : "20px"}; font-weight: 900; }

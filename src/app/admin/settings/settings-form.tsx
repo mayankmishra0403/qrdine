@@ -161,7 +161,8 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="billPaperSize" className="text-xs">Thermal Paper Size</Label>
-              <select id="billPaperSize" name="billPaperSize" defaultValue={r.billPaperSize || "80mm"} className="w-full h-8 text-sm border rounded-md px-3">
+              <select id="billPaperSize" name="billPaperSize" defaultValue={r.billPaperSize || "90mm"} className="w-full h-8 text-sm border rounded-md px-3">
+                <option value="90mm">90mm (Wide)</option>
                 <option value="80mm">80mm (Standard)</option>
                 <option value="58mm">58mm (Small)</option>
               </select>

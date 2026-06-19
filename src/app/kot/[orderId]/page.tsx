@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 
 const KOT_STYLES = `
   @page {
-    size: 80mm;
+    size: 90mm;
     margin: 0;
   }
   * {
@@ -20,7 +20,7 @@ const KOT_STYLES = `
     line-height: 1.2;
     color: #000;
     background: #fff;
-    width: 80mm;
+    width: 90mm;
     padding: 0;
   }
   .kot {
