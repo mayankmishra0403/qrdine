@@ -52,6 +52,9 @@ export const restaurantUpdateSchema = z.object({
   billFooter: z.string().max(500).optional().or(z.literal("")),
   kitchenPhone: z.string().max(20).optional().or(z.literal("")),
   waiterPhone: z.string().max(20).optional().or(z.literal("")),
+  billPaperSize: z.enum(["80mm", "58mm"]).optional(),
+  notificationSoundUrl: z.string().optional().or(z.literal("")),
+  notificationSoundEnabled: z.boolean().optional(),
 });
 
 export const loginSchema = z.object({

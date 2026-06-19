@@ -4,9 +4,33 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getPublicBillData } from "@/lib/actions/bill";
 
+function Loading() {
+  return (
+    <div className="flex items-center justify-center min-h-dvh bg-gray-50">
+      <div className="text-center space-y-3">
+        <div className="w-10 h-10 border-4 border-gray-300 border-t-gray-600 rounded-full animate-spin mx-auto" />
+        <p className="text-gray-500 text-sm">Loading bill...</p>
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ msg }: { msg: string }) {
+  return (
+    <div className="flex items-center justify-center min-h-dvh bg-gray-50 p-6">
+      <div className="text-center space-y-2 max-w-sm">
+        <p className="text-3xl">😕</p>
+        <p className="text-gray-700 font-medium">{msg}</p>
+        <p className="text-xs text-gray-400">Please contact the restaurant</p>
+      </div>
+    </div>
+  );
+}
+
 export default function PublicBillPage() {
   const params = useParams();
   const orderId = params.orderId as string;
+  const [doPrint, setDoPrint] = useState(false);
 
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,8 +48,17 @@ export default function PublicBillPage() {
   }, [orderId]);
 
   useEffect(() => {
-    setTimeout(() => window.print(), 500);
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("print") === "true") setDoPrint(true);
+    }
   }, []);
+
+  useEffect(() => {
+    if (doPrint && data) {
+      setTimeout(() => window.print(), 500);
+    }
+  }, [doPrint, data]);
 
   if (loading) return <Loading />;
   if (error) return <ErrorState msg={error} />;
@@ -53,251 +86,185 @@ export default function PublicBillPage() {
     isGst: boolean;
   };
 
+  const P = bill.isGst ? "GST" : "";
+
   return (
     <>
-      <div className="bill-container">
-        <div className="bill-header">
-          <h1 className="bill-restaurant-name">{bill.restaurant.name}</h1>
-          <p className="bill-address">{bill.restaurant.address || ""}</p>
-          {bill.restaurant.phone && <p className="bill-info">{bill.restaurant.phone}</p>}
-          {bill.restaurant.email && <p className="bill-info">{bill.restaurant.email}</p>}
-          <div className="bill-gst-row">
-            {bill.restaurant.gstin && <span>GSTIN: {bill.restaurant.gstin}</span>}
-            {bill.restaurant.pan && <span>PAN: {bill.restaurant.pan}</span>}
-          </div>
-        </div>
-
-        <div className="bill-divider" />
-
-        <div className="bill-meta">
-          <div className="bill-meta-left">
-            <p><strong>Bill No:</strong> {bill.invoiceNo}</p>
-            <p><strong>Date:</strong> {bill.date}</p>
-            <p><strong>Time:</strong> {bill.time}</p>
-          </div>
-          <div className="bill-meta-right">
-            <p><strong>Table:</strong> {bill.tableNumber}</p>
-            {bill.customer?.name && <p><strong>Customer:</strong> {bill.customer.name}</p>}
-            {bill.customer?.phone && <p><strong>Phone:</strong> {bill.customer.phone}</p>}
-          </div>
-        </div>
-
-        <div className="bill-divider" />
-
-        <table className="bill-table">
-          <thead>
-            <tr>
-              <th className="col-sr">#</th>
-              <th className="col-item">Item</th>
-              <th className="col-hsn">HSN/SAC</th>
-              <th className="col-qty">Qty</th>
-              <th className="col-rate">Rate</th>
-              <th className="col-amount">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {bill.items.map((item) => (
-              <tr key={item.sr}>
-                <td className="col-sr">{item.sr}</td>
-                <td className="col-item">{item.name}</td>
-                <td className="col-hsn">{item.hsn}</td>
-                <td className="col-qty">{item.qty}</td>
-                <td className="col-rate">{item.rate.toFixed(2)}</td>
-                <td className="col-amount">{item.amount.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="bill-divider" />
-
-        <div className="bill-totals">
-          <div className="bill-total-row">
-            <span>Subtotal</span>
-            <span>₹{bill.subtotal.toFixed(2)}</span>
-          </div>
-          {bill.discount > 0 && (
-            <div className="bill-total-row bill-discount">
-              <span>Discount</span>
-              <span>-₹{bill.discount.toFixed(2)}</span>
+      {/* Screen: Mobile-friendly card view */}
+      {!doPrint && (
+        <div className="min-h-dvh bg-gray-50 p-4 md:p-8">
+          <div className="max-w-md mx-auto bg-white rounded-2xl shadow-lg overflow-hidden">
+            <div className="bg-gray-900 text-white px-5 py-6 text-center">
+              <p className="text-lg font-bold">{bill.restaurant.name}</p>
+              {bill.restaurant.address && <p className="text-xs text-gray-300 mt-1">{bill.restaurant.address}</p>}
+              {bill.restaurant.phone && <p className="text-xs text-gray-300">{bill.restaurant.phone}</p>}
             </div>
-          )}
-          <div className="bill-total-row">
-            <span>Taxable Amount</span>
-            <span>₹{bill.taxableAmt.toFixed(2)}</span>
-          </div>
-          {bill.isGst && (
-            <>
-              {bill.cgst > 0 && (
-                <div className="bill-total-row">
-                  <span>CGST</span>
-                  <span>₹{bill.cgst.toFixed(2)}</span>
+
+            <div className="px-5 py-4 space-y-4">
+              <div className="flex justify-between items-center text-sm">
+                <div>
+                  <p className="font-semibold">{bill.invoiceNo}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{bill.date} · {bill.time}</p>
+                </div>
+                {bill.payment ? (
+                  <span className="text-green-700 bg-green-100 px-3 py-1 rounded-full text-xs font-semibold">Paid</span>
+                ) : (
+                  <span className="text-amber-700 bg-amber-100 px-3 py-1 rounded-full text-xs font-semibold">Unpaid</span>
+                )}
+              </div>
+
+              {bill.tableNumber > 0 && (
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <span>Table {bill.tableNumber}</span>
                 </div>
               )}
-              {bill.sgst > 0 && (
-                <div className="bill-total-row">
-                  <span>SGST</span>
-                  <span>₹{bill.sgst.toFixed(2)}</span>
+
+              {bill.customer?.name && <p className="text-sm">Customer: {bill.customer.name}</p>}
+              {bill.customer?.phone && <p className="text-sm text-gray-500">{bill.customer.phone}</p>}
+
+              <div className="border-t pt-3">
+                <div className="flex justify-between text-xs text-gray-500 pb-1 font-medium">
+                  <span className="flex-1">Item</span>
+                  <span className="w-12 text-right">Qty</span>
+                  <span className="w-20 text-right">Amount</span>
                 </div>
-              )}
-              {bill.igst > 0 && (
-                <div className="bill-total-row">
-                  <span>IGST</span>
-                  <span>₹{bill.igst.toFixed(2)}</span>
-                </div>
-              )}
-            </>
-          )}
-          {bill.serviceCharge > 0 && (
-            <div className="bill-total-row">
-              <span>Service Charge</span>
-              <span>₹{bill.serviceCharge.toFixed(2)}</span>
-            </div>
-          )}
-          <div className="bill-divider" />
-          <div className="bill-total-row bill-grand-total">
-            <span>Total</span>
-            <span>₹{bill.total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="bill-words">
-          <p><strong>Amount in Words:</strong></p>
-          <p className="bill-words-text">{bill.totalWords}</p>
-        </div>
-
-        {bill.payment && (
-          <div className="bill-payment">
-            <div className="bill-divider" />
-            <p><strong>Payment:</strong> {bill.payment.method.toUpperCase()}
-              {bill.payment.reference ? ` (Ref: ${bill.payment.reference})` : ""}
-            </p>
-          </div>
-        )}
-
-        {bill.isGst && bill.hsnSummary.length > 0 && (
-          <div className="bill-hsn-summary">
-            <div className="bill-divider" />
-            <p className="bill-section-title">HSN/SAC Summary</p>
-            <table className="bill-table bill-table-sm">
-              <thead>
-                <tr>
-                  <th>HSN/SAC</th>
-                  <th>Taxable</th>
-                  <th>CGST</th>
-                  <th>SGST</th>
-                  <th>IGST</th>
-                </tr>
-              </thead>
-              <tbody>
-                {bill.hsnSummary.map((h, i) => (
-                  <tr key={i}>
-                    <td>{h.hsn}</td>
-                    <td>{h.taxable.toFixed(2)}</td>
-                    <td>{h.cgst.toFixed(2)}</td>
-                    <td>{h.sgst.toFixed(2)}</td>
-                    <td>{h.igst.toFixed(2)}</td>
-                  </tr>
+                {bill.items.map((i) => (
+                  <div key={i.sr} className="flex justify-between text-sm py-1.5 border-b border-gray-100 last:border-0">
+                    <span className="flex-1">{i.name}</span>
+                    <span className="w-12 text-right text-gray-500">{i.qty}</span>
+                    <span className="w-20 text-right font-medium">₹{i.amount.toFixed(2)}</span>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </div>
 
-        <div className="bill-footer">
+              <div className="border-t pt-3 space-y-1.5 text-sm">
+                <div className="flex justify-between"><span className="text-gray-500">Subtotal</span><span>₹{bill.subtotal.toFixed(2)}</span></div>
+                {bill.discount > 0 && <div className="flex justify-between text-red-600"><span>Discount</span><span>-₹{bill.discount.toFixed(2)}</span></div>}
+                {bill.cgst > 0 && <div className="flex justify-between"><span>CGST</span><span>₹{bill.cgst.toFixed(2)}</span></div>}
+                {bill.sgst > 0 && <div className="flex justify-between"><span>SGST</span><span>₹{bill.sgst.toFixed(2)}</span></div>}
+                {bill.serviceCharge > 0 && <div className="flex justify-between"><span className="text-gray-500">Service Charge</span><span>₹{bill.serviceCharge.toFixed(2)}</span></div>}
+                <div className="border-t pt-2 flex justify-between text-lg font-bold"><span>Total</span><span>₹{bill.total.toFixed(2)}</span></div>
+              </div>
+
+              <p className="text-xs text-gray-400 italic text-center">{bill.totalWords}</p>
+
+              {bill.payment && (
+                <div className="bg-green-50 rounded-xl px-4 py-3 text-sm text-center text-green-800">
+                  Paid via {bill.payment.method.toUpperCase()}
+                  {bill.payment.reference && <span> · Ref: {bill.payment.reference}</span>}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-400 text-center">{bill.restaurant.billFooter || "Thank you! Visit again!"}</p>
+            </div>
+
+            {bill.restaurant.gstin && (
+              <div className="border-t bg-gray-50 px-5 py-3 text-xs text-gray-500 space-y-0.5">
+                <p>GSTIN: {bill.restaurant.gstin}</p>
+                {bill.restaurant.pan && <p>PAN: {bill.restaurant.pan}</p>}
+                {bill.restaurant.email && <p>{bill.restaurant.email}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Print version: Thermal format */}
+      <div className="print-only">
+        <div className="bill-container">
+          <div className="text-center">
+            <p className="bill-header">{bill.restaurant.name}</p>
+            {bill.restaurant.address && <p className="bill-addr">{bill.restaurant.address}</p>}
+            {bill.restaurant.phone && <p className="bill-addr">{bill.restaurant.phone}</p>}
+            {bill.restaurant.email && <p className="bill-addr">{bill.restaurant.email}</p>}
+          </div>
           <div className="bill-divider" />
-          <p className="bill-thanks">{bill.restaurant.billFooter || "Thank you! Visit again!"}</p>
-          {bill.customer?.gstin && <p className="bill-customer-gst">Customer GSTIN: {bill.customer.gstin}</p>}
-          <p className="bill-powered">This is a computer-generated invoice</p>
-          <p className="bill-powered">Powered by Ritam Bharat POS</p>
+          <div className="flex justify-between bill-meta">
+            <span className="bill-bold">{bill.invoiceNo}</span>
+            <span>{bill.date} {bill.time}</span>
+          </div>
+          {bill.tableNumber > 0 && <div className="bill-meta">Table: {bill.tableNumber}</div>}
+          {bill.customer?.name && <div className="bill-meta">Customer: {bill.customer.name}</div>}
+          {bill.customer?.gstin && <div className="bill-meta">GSTIN: {bill.customer.gstin}</div>}
+          <div className="bill-divider" />
+
+          <table className="bill-table">
+            <thead>
+              <tr>
+                <th className="text-left">Item</th>
+                {bill.isGst && <th className="text-center" style={{fontSize:"9px"}}>HSN</th>}
+                <th className="text-right">Qty</th>
+                <th className="text-right">Rate</th>
+                <th className="text-right">Amt</th>
+              </tr>
+            </thead>
+            <tbody>
+              {bill.items.map((i) => (
+                <tr key={i.sr}>
+                  <td>{i.name}</td>
+                  {bill.isGst && <td className="text-center" style={{fontSize:"9px", color:"#666"}}>{i.hsn}</td>}
+                  <td className="text-right">{i.qty}</td>
+                  <td className="text-right">{i.rate.toFixed(2)}</td>
+                  <td className="text-right bill-bold">{i.amount.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="bill-divider" />
+
+          <div className="bill-totals">
+            <div className="bill-total-row"><span>Subtotal</span><span>₹{bill.subtotal.toFixed(2)}</span></div>
+            {bill.discount > 0 && <div className="bill-total-row" style={{color:'#d32f2f'}}><span>Discount</span><span>-₹{bill.discount.toFixed(2)}</span></div>}
+            {bill.cgst > 0 && <div className="bill-total-row"><span>CGST @ {(bill.cgst / bill.taxableAmt * 100).toFixed(1)}%</span><span>₹{bill.cgst.toFixed(2)}</span></div>}
+            {bill.sgst > 0 && <div className="bill-total-row"><span>SGST @ {(bill.sgst / bill.taxableAmt * 100).toFixed(1)}%</span><span>₹{bill.sgst.toFixed(2)}</span></div>}
+            {bill.serviceCharge > 0 && <div className="bill-total-row"><span>Service Charge</span><span>₹{bill.serviceCharge.toFixed(2)}</span></div>}
+            <div className="bill-divider" />
+            <div className="bill-total-row bill-grand-total"><span>Total</span><span>₹{bill.total.toFixed(2)}</span></div>
+          </div>
+          <p className="bill-words">{bill.totalWords}</p>
+
+          {bill.payment && (
+            <div className="bill-meta text-center">
+              Paid via {bill.payment.method.toUpperCase()}{bill.payment.reference ? ` (${bill.payment.reference})` : ""}
+              {bill.payment.amount ? ` · ₹${bill.payment.amount.toFixed(2)}` : ""}
+            </div>
+          )}
+
+          <div className="bill-footer">{bill.restaurant.billFooter || "Thank you! Visit again!"}</div>
         </div>
       </div>
 
       <style jsx global>{`
-        @page { size: 80mm 297mm; margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { background: white !important; margin: 0 !important; padding: 0 !important; min-height: auto !important; }
-        .bill-container { max-width: 800px; margin: 0 auto; padding: 24px 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
-        @media print { .bill-container { width: 72mm; padding: 2mm 0; font-family: 'Courier New', monospace; font-size: 10px; line-height: 1.4; } }
-        .bill-header { text-align: center; margin-bottom: 16px; }
-        .bill-restaurant-name { font-size: 24px; font-weight: bold; margin: 0 0 4px; text-transform: uppercase; letter-spacing: 1px; }
-        .bill-address { font-size: 13px; color: #555; margin: 2px 0; }
-        .bill-info { font-size: 13px; color: #555; margin: 2px 0; }
-        .bill-gst-row { font-size: 12px; color: #666; display: flex; justify-content: center; gap: 16px; margin-top: 4px; }
-        .bill-divider { border-top: 1px solid #ccc; margin: 12px 0; }
-        .bill-meta { display: flex; justify-content: space-between; font-size: 13px; }
-        .bill-meta p { margin: 2px 0; }
-        .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .bill-table th { border-bottom: 2px solid #000; padding: 8px 4px; text-align: left; font-weight: bold; }
-        .bill-table td { padding: 6px 4px; border-bottom: 1px solid #eee; }
-        .bill-table-sm th { font-size: 12px; }
-        .bill-table-sm td { font-size: 12px; }
-        .col-sr { width: 40px; text-align: center; }
-        .col-item { text-align: left; }
-        .col-hsn { width: 100px; text-align: center; }
-        .col-qty { width: 60px; text-align: center; }
-        .col-rate { width: 100px; text-align: right; }
-        .col-amount { width: 120px; text-align: right; font-weight: bold; }
-        .bill-totals { margin: 12px 0; font-size: 13px; }
-        .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; }
-        .bill-discount { color: #d32f2f; }
-        .bill-grand-total { font-size: 18px; font-weight: bold; border-top: 2px solid #000; padding-top: 6px; margin-top: 4px; }
-        .bill-words { margin: 12px 0; font-size: 13px; }
-        .bill-words-text { font-style: italic; color: #555; }
-        .bill-payment { margin: 12px 0; font-size: 13px; }
-        .bill-section-title { font-weight: bold; font-size: 14px; margin: 4px 0; }
-        .bill-footer { text-align: center; margin-top: 24px; }
-        .bill-thanks { font-size: 16px; font-weight: bold; margin: 8px 0; }
-        .bill-customer-gst { font-size: 12px; color: #666; }
-        .bill-powered { font-size: 11px; color: #999; margin: 2px 0; }
-        .bill-hsn-summary { margin: 12px 0; }
+        .print-only { display: none; }
         @media print {
-          .bill-restaurant-name { font-size: 16px; margin: 0 0 2px; }
-          .bill-address, .bill-info { font-size: 9px; }
-          .bill-gst-row { font-size: 8px; gap: 12px; margin-top: 2px; }
+          body { margin: 0 !important; padding: 0 !important; background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          nav, header, footer, .no-print, .min-h-dvh { display: none !important; }
+          .print-only { display: block !important; }
+        }
+      `}</style>
+
+      <style jsx global>{`
+        @page { size: 80mm 297mm; margin: 0; }
+        body { margin: 0; padding: 0; background: #fff; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        @media print {
+          .bill-container { width: 72mm; padding: 3mm 2mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45; color: #000; }
+          .bill-header { font-size: 18px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+          .bill-addr { font-size: 11px; color: #333; }
+          .bill-meta { font-size: 11px; padding: 1px 0; }
+          .bill-bold { font-weight: 700; }
           .bill-divider { border-top: 1px dashed #000; margin: 5px 0; }
-          .bill-meta { font-size: 9px; }
-          .bill-meta p { margin: 1px 0; }
-          .bill-table { font-size: 9px; }
-          .bill-table th { border-bottom: 1px solid #000; padding: 3px 1px; }
-          .bill-table td { padding: 2px 1px; border-bottom: 1px dotted #aaa; }
-          .bill-table-sm th, .bill-table-sm td { font-size: 8px; }
-          .col-sr { width: 20px; }
-          .col-hsn { width: 60px; font-size: 8px; }
-          .col-qty { width: 30px; }
-          .col-rate { width: 50px; }
-          .col-amount { width: 60px; }
-          .bill-totals { margin: 5px 0; font-size: 9px; }
-          .bill-total-row { padding: 1px 0; }
-          .bill-grand-total { font-size: 12px; border-top: 2px solid #000; padding-top: 3px; }
-          .bill-words { margin: 5px 0; font-size: 9px; }
-          .bill-payment { margin: 5px 0; font-size: 9px; }
-          .bill-section-title { font-size: 9px; margin: 2px 0; }
-          .bill-footer { margin-top: 10px; }
-          .bill-thanks { font-size: 10px; margin: 5px 0; }
-          .bill-customer-gst { font-size: 8px; }
-          .bill-powered { font-size: 7px; }
-          .bill-hsn-summary { margin: 5px 0; }
+          .bill-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+          .bill-table th { border-bottom: 1.5px solid #000; padding: 3px 1px; font-weight: 600; font-size: 11px; }
+          .bill-table td { padding: 2px 1px; border-bottom: 1px solid #ddd; }
+          .bill-totals { margin: 4px 0; font-size: 12px; }
+          .bill-total-row { display: flex; justify-content: space-between; padding: 1.5px 0; }
+          .bill-grand-total { font-size: 16px; font-weight: 700; border-top: 2px solid #000; padding-top: 4px; margin-top: 2px; }
+          .bill-words { font-size: 10px; color: #555; font-style: italic; text-align: center; margin: 4px 0; }
+          .bill-footer { font-size: 12px; font-weight: 600; text-align: center; margin-top: 6px; padding-top: 4px; border-top: 1px dashed #000; }
         }
       `}</style>
     </>
-  );
-}
-
-function Loading() {
-  return (
-    <div className="flex items-center justify-center min-h-dvh bg-white">
-      <p className="text-gray-400 animate-pulse text-sm">Loading bill...</p>
-      <style jsx global>{`* { margin: 0; padding: 0; box-sizing: border-box; } html, body { background: white !important; }`}</style>
-    </div>
-  );
-}
-
-function ErrorState({ msg }: { msg: string }) {
-  return (
-    <div className="flex items-center justify-center min-h-dvh bg-white">
-      <p className="text-gray-400 text-sm">{msg}</p>
-      <style jsx global>{`* { margin: 0; padding: 0; box-sizing: border-box; } html, body { background: white !important; }`}</style>
-    </div>
   );
 }

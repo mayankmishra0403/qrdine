@@ -66,8 +66,8 @@ export function InstallPrompt() {
         <div className="flex items-center gap-4 mb-4">
           <img src="/icons/icon-192.png" alt="" className="w-14 h-14 rounded-xl shadow" />
           <div className="flex-1 min-w-0">
-            <h2 className="text-base font-bold">Install Waiter App</h2>
-            <p className="text-xs text-muted-foreground">Faster ordering with instant notifications</p>
+            <h2 className="text-base font-bold">Install App</h2>
+            <p className="text-xs text-muted-foreground">Faster access with instant notifications</p>
           </div>
         </div>
 

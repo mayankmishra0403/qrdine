@@ -29,6 +29,9 @@ model Restaurant {
   loyaltyMinRedeem Int     @default(100)
   kitchenPhone     String?
   waiterPhone      String?
+  billPaperSize    String   @default("80mm")
+  notificationSoundUrl String?
+  notificationSoundEnabled Boolean @default(true)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -48,6 +51,7 @@ model Restaurant {
   posSessions     PosSession[]
   taxSlabs        TaxSlab[]
   rooms           Room[]
+  pushSubscriptions PushSubscription[]
 }
 
 model TaxSlab {
@@ -81,6 +85,26 @@ model User {
   assignedOrders  Order[]    @relation("WaiterOrders")
   posTransactions Payment[]
   posSessions     PosSession[]
+  pushSubscriptions PushSubscription[]
+}
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  endpoint     String
+  p256dh       String
+  auth         String
+  userAgent    String?
+  userId       String
+  restaurantId String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([endpoint, userId])
+  @@index([restaurantId])
+  @@index([userId])
 }
 
 model Room {

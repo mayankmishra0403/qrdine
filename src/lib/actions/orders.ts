@@ -8,6 +8,7 @@ import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
+import { sendPushToRole } from "@/lib/actions/push";
 
 type CartItem = {
   itemId: string;
@@ -130,6 +131,11 @@ export async function placeOrder(
       }).catch((err: Error) => console.error("[Waiter] Send error:", err.message));
     }
 
+    if (table.restaurantId) {
+      const tableStr = table.tableNumber ? `Table ${table.tableNumber}` : "Takeaway";
+      sendPushToRole(table.restaurantId, "kitchen", `🍳 New Order`, `${tableStr} — ${order.items.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+    }
+
     let whatsappSent = false;
     if (await isWhatsAppConfigured()) {
       const billUrl = `${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}`;
@@ -197,6 +203,16 @@ export async function updateOrderStatus(orderId: string, status: string) {
 
     revalidatePath("/kitchen");
     revalidatePath("/admin/orders");
+
+    if (order.restaurantId) {
+      if (status === "confirmed") {
+        sendPushToRole(order.restaurantId, "kitchen", `✅ Order Confirmed`, `Order #${order.id.slice(-6)} confirmed`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+      } else if (status === "ready") {
+        const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
+        sendPushToRole(order.restaurantId, "waiter", `🛎️ Order Ready`, `${tableStr} — Order #${order.id.slice(-6)} is ready`, { url: "/waiter-app/orders", orderId: order.id }).catch(() => {});
+        sendPushToRole(order.restaurantId, "admin", `🛎️ Order Ready`, `${tableStr} — Order #${order.id.slice(-6)} is ready`, { url: "/admin/orders", orderId: order.id }).catch(() => {});
+      }
+    }
 
     if (await isWhatsAppConfigured() && order.customer?.phone) {
       const billUrl = `${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}`;

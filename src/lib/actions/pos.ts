@@ -7,6 +7,7 @@ import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
+import { sendPushToRole, sendPushToAll } from "@/lib/actions/push";
 import { numberToWords } from "@/lib/number-to-words";
 
 export async function getPosData() {
@@ -194,6 +195,11 @@ export async function createPosOrder(data: {
       }).catch((err: Error) => console.error("[Waiter] Send error:", err.message));
     }
 
+    if (order.restaurantId) {
+      const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : orderType;
+      sendPushToRole(order.restaurantId, "kitchen", `🍳 New POS Order`, `${tableStr} — ${orderItems.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+    }
+
     if (order.customer?.phone && (await isWhatsAppConfigured())) {
       const sendResult = await sendWhatsAppMessage(order.customer.phone,
         `✅ *Order Confirmed*\n📎 ${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}\n\nWe'll notify you when ready.`);
@@ -337,6 +343,12 @@ export async function processPayment(data: {
         loyaltyMsg: loyaltyMsg || undefined,
       });
       if (!sendResult.success) console.error("[WhatsApp] Send failed:", sendResult.error);
+    }
+
+    if (order.restaurantId) {
+      const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
+      sendPushToRole(order.restaurantId, "admin", `💰 Payment Received`, `${tableStr} — ₹${Number(data.amount).toFixed(0)} via ${data.method}`, { url: "/admin/orders", orderId: order.id }).catch(() => {});
+      sendPushToRole(order.restaurantId, "waiter", `✅ Table Closed`, `${tableStr} — Payment completed`, { url: "/waiter-app", orderId: order.id }).catch(() => {});
     }
 
     revalidatePath("/admin/pos");

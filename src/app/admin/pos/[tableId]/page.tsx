@@ -595,7 +595,7 @@ export default function PosBillingPage() {
             <div className="space-y-2">
               <p className="text-xs font-medium text-green-600">✅ Payment Complete</p>
               <a
-                href={`/admin/bill/${paidOrderId}`}
+                href={`/admin/bill/${paidOrderId}?print=true`}
                 target="_blank"
                 className="flex items-center justify-center rounded-lg bg-foreground text-background px-4 py-2.5 text-xs font-medium hover:opacity-90"
               >

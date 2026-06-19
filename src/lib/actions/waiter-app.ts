@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
 import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
+import { sendPushToRole, sendPushToAll } from "@/lib/actions/push";
 
 export async function getWaiterAppData() {
   try {
@@ -155,6 +156,12 @@ export async function createWaiterAppOrder(data: {
         customerPhone: fullPhone,
         items: orderItems,
       }).catch((err: Error) => console.error("[Waiter] Send error:", err.message));
+    }
+
+    if (order.restaurantId) {
+      const tableStr = order.table?.tableNumber ? `Table ${order.table.tableNumber}` : "Takeaway";
+      sendPushToRole(order.restaurantId, "kitchen", `🍳 New Order`, `${tableStr} — ${orderItems.length} items`, { url: "/kitchen", orderId: order.id }).catch(() => {});
+      sendPushToRole(order.restaurantId, "waiter", `📋 New Order`, `${tableStr} · ₹${subtotal.toFixed(0)}`, { url: "/waiter-app/orders", orderId: order.id }).catch(() => {});
     }
 
     if (fullPhone && (await isWhatsAppConfigured())) {

@@ -1,6 +1,6 @@
 import { getBillData } from "@/lib/actions/bill";
 import { notFound } from "next/navigation";
-import { BillContent } from "./bill-content";
+import BillContent from "./bill-content";
 
 export default async function BillPage({
   params,
