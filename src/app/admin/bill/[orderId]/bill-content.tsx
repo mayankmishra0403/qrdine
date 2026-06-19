@@ -192,6 +192,7 @@ function getAdminBillStyles(format: "thermal" | "a4") {
     .bill-url-text { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
 
     @media print {
+      header { display: none !important; }
       .bill-container {
         ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; border-radius: 0; box-shadow: none; max-width: none;" : "padding: 1mm 1.5mm; width: 78mm; font-family: 'Courier New', 'Courier', monospace; font-size: 12px; line-height: 1.35; border-radius: 0; box-shadow: none; max-width: none; margin: 0;"}
         color: #000; background: none;
