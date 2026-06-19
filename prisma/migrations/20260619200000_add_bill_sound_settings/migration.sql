@@ -1,0 +1,3 @@
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "billPaperSize" TEXT DEFAULT '80mm' NOT NULL;
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "notificationSoundUrl" TEXT;
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "notificationSoundEnabled" BOOLEAN DEFAULT true NOT NULL;

@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { InstallPrompt } from "@/components/install-prompt";
+import { WaiterAppHeader } from "./waiter-app-header";
 
 export default function WaiterAppLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <InstallPrompt />
+      <WaiterAppHeader />
       {children}
     </>
   );

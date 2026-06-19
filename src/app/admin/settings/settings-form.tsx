@@ -14,7 +14,9 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
     email: string | null; gstin: string | null; pan: string | null; currency: string;
     timezone: string; taxRate: number; serviceCharge: number; logo: string | null; billFooter: string;
     kitchenPhone: string | null; waiterPhone: string | null;
+    billPaperSize: string; notificationSoundUrl: string | null; notificationSoundEnabled: boolean;
   };
+
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -36,6 +38,9 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
       billFooter: (form.get("billFooter") as string).trim() || undefined,
       kitchenPhone: (form.get("kitchenPhone") as string).trim() || undefined,
       waiterPhone: (form.get("waiterPhone") as string).trim() || undefined,
+      billPaperSize: form.get("billPaperSize") as string,
+      notificationSoundUrl: (form.get("notificationSoundUrl") as string).trim() || undefined,
+      notificationSoundEnabled: form.get("notificationSoundEnabled") === "on",
     });
 
     if (result.success) toast.success("Settings saved");
@@ -153,6 +158,16 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
       <Card>
         <CardHeader><CardTitle className="text-lg">📄 Bill Settings</CardTitle></CardHeader>
         <CardContent className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="billPaperSize" className="text-xs">Thermal Paper Size</Label>
+              <select id="billPaperSize" name="billPaperSize" defaultValue={r.billPaperSize || "80mm"} className="w-full h-8 text-sm border rounded-md px-3">
+                <option value="80mm">80mm (Standard)</option>
+                <option value="58mm">58mm (Small)</option>
+              </select>
+              <p className="text-[10px] text-muted-foreground">Affects printed bill width</p>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label htmlFor="billFooter" className="text-xs">Bill Footer Message</Label>
             <textarea
@@ -174,6 +189,37 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
               <p className="text-center italic">{r.billFooter || "Thank you! Visit again!"}</p>
               <p className="text-center text-[8px] text-muted-foreground mt-1">Powered by Ritam Bharat POS</p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Notification Sound Settings */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">🔔 Notification Sound</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">Play a sound when a new order arrives (works on open browser tabs).</p>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="notificationSoundEnabled"
+              name="notificationSoundEnabled"
+              defaultChecked={r.notificationSoundEnabled !== false}
+              className="w-4 h-4 rounded border-gray-300"
+            />
+            <Label htmlFor="notificationSoundEnabled" className="text-sm cursor-pointer">Enable notification sound</Label>
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="notificationSoundUrl" className="text-xs">Custom Sound URL (optional)</Label>
+            <Input
+              id="notificationSoundUrl"
+              name="notificationSoundUrl"
+              defaultValue={r.notificationSoundUrl || ""}
+              placeholder="https://example.com/notification.mp3"
+              className="h-8 text-sm"
+            />
+            <p className="text-[10px] text-muted-foreground">
+              Paste a direct URL to an MP3/OGG/WAV file. Leave empty for default chime.
+            </p>
           </div>
         </CardContent>
       </Card>

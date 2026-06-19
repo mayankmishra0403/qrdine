@@ -21,6 +21,9 @@ export async function updateRestaurant(data: {
   billFooter?: string;
   kitchenPhone?: string;
   waiterPhone?: string;
+  billPaperSize?: string;
+  notificationSoundUrl?: string;
+  notificationSoundEnabled?: boolean;
 }) {
   try {
     const session = await requireAuth();
