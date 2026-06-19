@@ -26,7 +26,9 @@ model Restaurant {
   loyaltyEnabled Boolean  @default(false)
   loyaltyEarnRate Int     @default(100)
   loyaltyRedeemRate Int   @default(100)
-  loyaltyMinRedeem Int    @default(100)
+  loyaltyMinRedeem Int     @default(100)
+  kitchenPhone     String?
+  waiterPhone      String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

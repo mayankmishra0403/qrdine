@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { placeOrderSchema } from "@/lib/validation";
 import { handleActionError, ValidationError } from "@/lib/errors";
 import { serialize } from "@/lib/serialize";
-import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT } from "@/lib/actions/whatsapp";
+import { isWhatsAppConfigured, sendWhatsAppMessage, sendKOT, sendWaiterNotification, sendCustomerBill } from "@/lib/actions/whatsapp";
 import { earnLoyaltyPoints } from "@/lib/actions/loyalty";
 
 type CartItem = {
@@ -110,41 +110,33 @@ export async function placeOrder(
     revalidatePath("/admin/orders");
 
     if (await isWhatsAppConfigured()) {
-      const kotItems = order.items.map((i) => ({
+      const orderItems = order.items.map((i) => ({
         name: i.item.name,
         variant: i.variant?.name,
         quantity: i.quantity,
-        unitPrice: Number(i.unitPrice),
       }));
-      sendKOT({
+
+      sendKOT(table.restaurant.kitchenPhone || "", {
         kotNumber: order.id.slice(-6).toUpperCase(),
-        restaurantName: table.restaurant.name,
+        tableNumber: order.table?.tableNumber,
+        items: orderItems,
+      }).catch((err: Error) => console.error("[KOT] Send error:", err.message));
+
+      sendWaiterNotification(table.restaurant.waiterPhone || "", {
         tableNumber: order.table?.tableNumber,
         customerName: null,
-        orderType: "dine-in",
-        items: kotItems,
-      }).catch((err: Error) => console.error("[KOT] Send error:", err.message));
+        customerPhone: parsed.data.phone,
+        items: orderItems,
+      }).catch((err: Error) => console.error("[Waiter] Send error:", err.message));
     }
 
     let whatsappSent = false;
     if (await isWhatsAppConfigured()) {
-      const restaurant = table.restaurant;
-      const shortId = order.id.slice(-6).toUpperCase();
-      const itemLines = order.items
-        .map((i) => {
-          const name = i.item.name + (i.variant ? ` (${i.variant.name})` : "");
-          return `  ${name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`;
-        })
-        .join("\n");
-      const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-      const billLink = `${tunnelUrl}/bill/${order.id}`;
-      const msg = `Hi! Your order #${shortId} has been placed at ${restaurant.name}.\n\n── Receipt ──\n${itemLines}\n─────────────\nTotal: ₹${Number(order.total).toFixed(2)}\n\n📎 View Bill: ${billLink}\n\nWe'll notify you when it's confirmed. Thank you!`;
-      const result = await sendWhatsAppMessage(parsed.data.phone, msg);
-      if (result.success) {
-        whatsappSent = true;
-      } else {
-        console.warn("WhatsApp send failed:", result.error);
-      }
+      const billUrl = `${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}`;
+      const result = await sendWhatsAppMessage(parsed.data.phone,
+        `✅ *Order Placed*\n📎 ${billUrl}\n\nWe'll notify you when confirmed.`);
+      if (result.success) whatsappSent = true;
+      else console.warn("WhatsApp send failed:", result.error);
     }
 
     return {
@@ -207,67 +199,32 @@ export async function updateOrderStatus(orderId: string, status: string) {
     revalidatePath("/admin/orders");
 
     if (await isWhatsAppConfigured() && order.customer?.phone) {
-      const shortId = order.id.slice(-6).toUpperCase();
-      const restaurantName = order.restaurant.name;
-      const tableNum = order.table?.tableNumber ?? 0;
-      let msg = "";
+      const billUrl = `${process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/bill/${order.id}`;
 
-      switch (status) {
-        case "confirmed": {
-          const orderItems = await prisma.orderItem.findMany({
-            where: { orderId },
-            include: { item: true, variant: true },
+      if (status === "served") {
+        let loyaltySuffix = "";
+        const earnResult = await earnLoyaltyPoints(orderId);
+        if (earnResult?.success && earnResult.points && order.customerId) {
+          const loyalty = await prisma.loyaltyProgram.findUnique({
+            where: { customerId: order.customerId },
           });
-          const itemLines = orderItems
-            .map((i) => {
-              const name = i.item.name + (i.variant ? ` (${i.variant.name})` : "");
-              return `  ${name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`;
-            })
-            .join("\n");
-          msg = `Your order #${shortId} at ${restaurantName} has been confirmed!\n\n── Receipt ──\n${itemLines}\n─────────────\nTotal: ₹${Number(order.total).toFixed(2)}\n\nWe'll start preparing it shortly.`;
-          break;
-        }
-        case "ready":
-          msg = `Your order #${shortId} at ${restaurantName} is ready for pickup from Table ${tableNum}! Please collect from the counter.`;
-          break;
-        case "served": {
-          const orderItems = await prisma.orderItem.findMany({
-            where: { orderId },
-            include: { item: true, variant: true },
-          });
-          const itemLines = orderItems
-            .map((i) => {
-              const name = i.item.name + (i.variant ? ` (${i.variant.name})` : "");
-              return `  ${name} ×${i.quantity} — ₹${(Number(i.unitPrice) * i.quantity).toFixed(2)}`;
-            })
-            .join("\n");
-          const total = Number(order.total);
-          let loyaltySuffix = "";
-          const earnResult = await earnLoyaltyPoints(orderId);
-          if (earnResult?.success && earnResult.points && order.customerId) {
-            const loyalty = await prisma.loyaltyProgram.findUnique({
-              where: { customerId: order.customerId },
-            });
-            if (loyalty) {
-              const available = loyalty.pointsEarned - loyalty.pointsRedeemed;
-              loyaltySuffix = `\n\n⭐ You earned ${earnResult.points} loyalty points!\nTotal: ${loyalty.pointsEarned} pts | Available: ${available} pts`;
-            }
+          if (loyalty) {
+            const available = loyalty.pointsEarned - loyalty.pointsRedeemed;
+            loyaltySuffix = `\n⭐ You earned ${earnResult.points} pts! Total: ${loyalty.pointsEarned} | Available: ${available}`;
           }
-          msg = `Thanks for dining at ${restaurantName}!\n\n── Final Bill ──\n${itemLines}\n────────────────\nTotal: ₹${total.toFixed(2)}\n\nWe hope to see you again!${loyaltySuffix}`;
-          break;
         }
-        case "cancelled":
-          msg = `Your order #${shortId} at ${restaurantName} has been cancelled. Please contact the restaurant for details.`;
-          break;
-        default:
-          break;
-      }
-
-      if (msg) {
-        const sendResult = await sendWhatsAppMessage(order.customer.phone, msg);
-        if (!sendResult.success) {
-          console.error("[WhatsApp] Send message failed:", sendResult.error);
-        }
+        await sendCustomerBill(order.customer.phone, {
+          total: Number(order.total),
+          invoiceNo: `INV-${order.id.slice(-6).toUpperCase()}`,
+          orderId: order.id,
+          loyaltyMsg: loyaltySuffix || undefined,
+        }).catch((err: Error) => console.error("[WhatsApp] Send failed:", err.message));
+      } else if (status === "cancelled") {
+        sendWhatsAppMessage(order.customer.phone, `❌ *Order Cancelled*`).catch(() => {});
+      } else if (status === "confirmed") {
+        sendWhatsAppMessage(order.customer.phone, `✅ *Order Confirmed*\n📎 ${billUrl}`).catch(() => {});
+      } else if (status === "ready") {
+        sendWhatsAppMessage(order.customer.phone, `✅ *Ready for pickup*\n📎 ${billUrl}`).catch(() => {});
       }
     }
 

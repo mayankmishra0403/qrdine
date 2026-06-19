@@ -13,6 +13,7 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
     id: string; name: string; slug: string; address: string | null; phone: string | null;
     email: string | null; gstin: string | null; pan: string | null; currency: string;
     timezone: string; taxRate: number; serviceCharge: number; logo: string | null; billFooter: string;
+    kitchenPhone: string | null; waiterPhone: string | null;
   };
   const [saving, setSaving] = useState(false);
 
@@ -33,6 +34,8 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
       taxRate: parseFloat(form.get("taxRate") as string) || 0,
       serviceCharge: parseFloat(form.get("serviceCharge") as string) || 0,
       billFooter: (form.get("billFooter") as string).trim() || undefined,
+      kitchenPhone: (form.get("kitchenPhone") as string).trim() || undefined,
+      waiterPhone: (form.get("waiterPhone") as string).trim() || undefined,
     });
 
     if (result.success) toast.success("Settings saved");
@@ -121,6 +124,26 @@ export function SettingsForm({ restaurant }: { restaurant: Record<string, unknow
                 <option value="Europe/London">Europe/London</option>
                 <option value="UTC">UTC</option>
               </select>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* WhatsApp Notifications */}
+      <Card>
+        <CardHeader><CardTitle className="text-lg">📱 WhatsApp Notifications</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">Enter phone numbers with country code (e.g., 919876543210). Leave blank to disable.</p>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="kitchenPhone" className="text-xs">Kitchen (KOT)</Label>
+              <Input id="kitchenPhone" name="kitchenPhone" defaultValue={r.kitchenPhone || ""} placeholder="919876543210" className="h-8 text-sm font-mono" />
+              <p className="text-[10px] text-muted-foreground">Receives order items &amp; table no.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="waiterPhone" className="text-xs">Waiter</Label>
+              <Input id="waiterPhone" name="waiterPhone" defaultValue={r.waiterPhone || ""} placeholder="919876543210" className="h-8 text-sm font-mono" />
+              <p className="text-[10px] text-muted-foreground">Receives order + customer info</p>
             </div>
           </div>
         </CardContent>

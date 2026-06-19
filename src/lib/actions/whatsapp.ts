@@ -9,7 +9,6 @@ import {
   disconnectInstance,
   deleteInstance,
   formatPhone,
-  getConnectedPhone,
 } from "@/lib/whatsapp";
 import { revalidatePath } from "next/cache";
 import { handleActionError } from "@/lib/errors";
@@ -124,64 +123,84 @@ export async function sendWhatsAppMessage(phone: string, text: string) {
 
 function buildKOTMessage(params: {
   kotNumber: string;
-  restaurantName: string;
   tableNumber?: number;
-  customerName?: string | null;
-  orderType: string;
-  items: Array<{ name: string; variant?: string | null; quantity: number; unitPrice: number }>;
+  items: Array<{ name: string; variant?: string | null; quantity: number }>;
 }) {
-  const { kotNumber, restaurantName, tableNumber, customerName, orderType, items } = params;
-  const now = new Date();
-  const date = now.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
-  const time = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-
-  const itemLines = items
-    .map((i) => `  ${i.quantity}x ${i.name}${i.variant ? ` (${i.variant})` : ""}`)
-    .join("\n");
-
-  return [
-    `🧾 *KOT — ${restaurantName}*`,
-    `━━━━━━━━━━━━━━━━━━━`,
-    `KOT #: ${kotNumber}`,
-    tableNumber ? `Table: ${tableNumber}` : null,
-    customerName ? `Customer: ${customerName}` : null,
-    `Type: ${orderType.toUpperCase()}`,
-    `Date: ${date}`,
-    `Time: ${time}`,
-    `━━━━━━━━━━━━━━━━━━━`,
-    `${itemLines}`,
-    `━━━━━━━━━━━━━━━━━━━`,
-    `Total Items: ${totalItems}`,
-    `━━━━━━━━━━━━━━━━━━━`,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  const { kotNumber, tableNumber, items } = params;
+  const itemLines = items.map((i) => `  ${i.quantity}x ${i.name}${i.variant ? ` (${i.variant})` : ""}`).join("\n");
+  return [`🍳 *KOT #${kotNumber}*`, tableNumber ? `Table ${tableNumber}` : null, `━━━`, `${itemLines}`].filter(Boolean).join("\n");
 }
 
-export async function sendKOT(params: {
-  kotNumber: string;
-  restaurantName: string;
+function buildWaiterMessage(params: {
   tableNumber?: number;
   customerName?: string | null;
-  orderType: string;
-  items: Array<{ name: string; variant?: string | null; quantity: number; unitPrice: number }>;
+  customerPhone?: string;
+  items: Array<{ name: string; variant?: string | null; quantity: number }>;
 }) {
+  const { tableNumber, customerName, customerPhone, items } = params;
+  const from = customerName || customerPhone || "Guest";
+  const itemLines = items.map((i) => `  ${i.quantity}x ${i.name}${i.variant ? ` (${i.variant})` : ""}`).join("\n");
+  return [`📋 *New Order*`, tableNumber ? `Table ${tableNumber}` : null, `From: ${from}`, `━━━`, `${itemLines}`].filter(Boolean).join("\n");
+}
+
+function buildCustomerBillMessage(params: {
+  total: number;
+  invoiceNo: string;
+  orderId: string;
+  loyaltyMsg?: string;
+}) {
+  const { total, invoiceNo, orderId, loyaltyMsg } = params;
+  const tunnelUrl = process.env.TUNNEL_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const billLink = `${tunnelUrl}/bill/${orderId}`;
+  let msg = `🧾 *Your Bill*\nInvoice: ${invoiceNo}\nTotal: ₹${total.toFixed(2)}\n📎 ${billLink}`;
+  if (loyaltyMsg) msg += `\n${loyaltyMsg}`;
+  return msg;
+}
+
+export async function sendKOT(phone: string, params: {
+  kotNumber: string;
+  tableNumber?: number;
+  items: Array<{ name: string; variant?: string | null; quantity: number }>;
+}) {
+  if (!phone) return { success: false, error: "No kitchen phone" };
   try {
-    const kitckenPhone = await getConnectedPhone();
-    if (!kitckenPhone) {
-      console.warn("[KOT] No connected phone found to send KOT");
-      return { success: false, error: "No connected phone" };
-    }
-    const msg = buildKOTMessage(params);
-    const result = await sendText(kitckenPhone, msg);
-    if (!result.success) {
-      console.error("[KOT] Send failed:", result.error);
-      return { success: false, error: result.error };
-    }
-    return { success: true };
+    const msg = buildKOTMessage({ ...params });
+    const result = await sendText(phone, msg);
+    return result.success ? { success: true } : { success: false, error: result.error };
   } catch (error) {
     console.error("[KOT] Error:", error);
+    return { success: false, error: handleActionError(error).error };
+  }
+}
+
+export async function sendWaiterNotification(phone: string, params: {
+  tableNumber?: number;
+  customerName?: string | null;
+  customerPhone?: string;
+  items: Array<{ name: string; variant?: string | null; quantity: number }>;
+}) {
+  if (!phone) return { success: false, error: "No waiter phone" };
+  try {
+    const msg = buildWaiterMessage({ ...params });
+    const result = await sendText(phone, msg);
+    return result.success ? { success: true } : { success: false, error: result.error };
+  } catch (error) {
+    console.error("[Waiter] Error:", error);
+    return { success: false, error: handleActionError(error).error };
+  }
+}
+
+export async function sendCustomerBill(phone: string, params: {
+  total: number;
+  invoiceNo: string;
+  orderId: string;
+  loyaltyMsg?: string;
+}) {
+  try {
+    const msg = buildCustomerBillMessage({ ...params });
+    const result = await sendText(phone, msg);
+    return result.success ? { success: true } : { success: false, error: result.error };
+  } catch (error) {
     return { success: false, error: handleActionError(error).error };
   }
 }

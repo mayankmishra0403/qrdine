@@ -19,6 +19,8 @@ export async function updateRestaurant(data: {
   serviceCharge?: number;
   logo?: string;
   billFooter?: string;
+  kitchenPhone?: string;
+  waiterPhone?: string;
 }) {
   try {
     const session = await requireAuth();

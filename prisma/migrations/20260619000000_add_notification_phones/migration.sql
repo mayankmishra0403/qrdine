@@ -1,0 +1,2 @@
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "kitchenPhone" TEXT;
+ALTER TABLE "Restaurant" ADD COLUMN IF NOT EXISTS "waiterPhone" TEXT;

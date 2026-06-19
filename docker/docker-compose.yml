@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: qrdine
-      POSTGRES_PASSWORD: qrdine
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-qrdine}
       POSTGRES_DB: qrdine
     ports:
       - "5432:5432"
@@ -31,13 +31,13 @@ services:
       retries: 5
 
   evolution_api:
-    image: evoapicloud/evolution-api:v2.3.7
-    ports:
-      - "8080:8080"
+    image: atendiamo/evolution-api:v2.3.7
+    env_file:
+      - ./.env
     environment:
       DATABASE_ENABLED: "true"
       DATABASE_PROVIDER: "postgresql"
-      DATABASE_CONNECTION_URI: "postgresql://qrdine:qrdine@postgres:5432/evolution?schema=public"
+      DATABASE_CONNECTION_URI: "postgresql://qrdine:${DB_PASSWORD:-qrdine}@postgres:5432/evolution?schema=public"
       DATABASE_SAVE_DATA_INSTANCE: "true"
       DATABASE_SAVE_DATA_NEW_MESSAGE: "true"
       DATABASE_SAVE_MESSAGE_UPDATE: "true"
@@ -74,11 +74,11 @@ services:
       - ./.env
       - ../.env
     environment:
-      DATABASE_URL: "postgresql://qrdine:qrdine@postgres:5432/qrdine?schema=public"
+      DATABASE_URL: "postgresql://qrdine:${DB_PASSWORD:-qrdine}@postgres:5432/qrdine?schema=public"
       REDIS_URL: "redis://redis:6379"
-      AUTH_URL: "https://pos.ritambharat.software"
-      NEXTAUTH_URL: "https://pos.ritambharat.software"
-      NEXT_PUBLIC_APP_URL: "https://pos.ritambharat.software"
+      AUTH_URL: "${AUTH_URL:-https://pos.ritambharat.software}"
+      NEXTAUTH_URL: "${NEXTAUTH_URL:-https://pos.ritambharat.software}"
+      NEXT_PUBLIC_APP_URL: "${NEXT_PUBLIC_APP_URL:-https://pos.ritambharat.software}"
       EVOLUTION_API_URL: "http://evolution_api:8080"
       PRISMA_CLI_BINARY_TARGETS: "linux-musl-openssl-3.0.x,debian-openssl-3.0.x"
     depends_on:
