@@ -5,58 +5,65 @@ import { useParams } from "next/navigation";
 import { getPublicBillData } from "@/lib/actions/bill";
 import QRCode from "qrcode";
 
-const BILL_STYLES = `
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: #f3f4f6; margin: 0; padding: 16px; }
-  .bill-wrapper { max-width: 420px; margin: 0 auto; }
-  .bill-container { background: white; border-radius: 16px; padding: 24px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
-  .bill-header { font-size: 20px; font-weight: 800; text-align: center; letter-spacing: 0.5px; margin-bottom: 2px; }
-  .bill-addr { font-size: 12px; color: #444; text-align: center; font-weight: 600; }
-  .bill-divider { border-top: 2px solid #000; margin: 12px 0; }
-  .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
-  .bill-meta .label { color: #555; }
-  .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; text-align: left; }
-  .bill-table th:not(:first-child) { text-align: right; }
-  .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-  .bill-table td:not(:first-child) { text-align: right; }
-  .bill-table td:last-child { font-weight: 700; }
-  .bill-totals { margin: 8px 0; font-size: 13px; }
-  .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
-  .bill-grand-total { font-size: 18px; font-weight: 800; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
-  .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
-  .bill-divider-dashed { border-top: 1px dashed #000; margin: 8px 0; }
-  .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
-  .bill-paid { background: #dcfce7; color: #166534; text-align: center; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 13px; margin-bottom: 12px; }
-  .qr-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #000; }
-  .qr-section canvas { border-radius: 8px; }
-  .bill-link { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
-  .bill-link-label { font-size: 11px; color: #444; font-weight: 700; text-align: center; }
-  .print-btn { display: block; width: 100%; padding: 14px; margin-top: 16px; background: #111827; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
-  .print-btn:active { opacity: 0.8; }
-  .no-print { display: block; }
-  .print-only { display: none; }
-
-  @media print {
-    body { background: white; padding: 0; margin: 0; }
-    .no-print { display: none !important; }
-    .bill-wrapper { max-width: none; }
-    .bill-container { box-shadow: none; border-radius: 0; padding: 3mm 2mm; width: 72mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45; }
-    .bill-header { font-size: 18px; }
-    .bill-addr { font-size: 11px; color: #333; }
-    .bill-meta { font-size: 11px; }
-    .bill-divider { border-top: 1px dashed #000; margin: 5px 0; }
-    .bill-table { font-size: 12px; }
-    .bill-table th { padding: 3px 1px; font-size: 11px; }
-    .bill-table td { padding: 2px 1px; }
-    .bill-totals { font-size: 12px; }
-    .bill-total-row { padding: 1.5px 0; }
-    .bill-grand-total { font-size: 16px; padding-top: 4px; }
-    .bill-words { font-size: 10px; }
-    .bill-footer { font-size: 12px; }
-    .qr-section { display: none !important; }
-  }
-`;
+function getBillStyles(format: "thermal" | "a4") {
+  const isA4 = format === "a4";
+  return `
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f3f4f6; margin: 0; padding: 16px; }
+    .bill-wrapper { max-width: 420px; margin: 0 auto; }
+    .bill-container { background: white; border-radius: 16px; padding: 24px 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
+    .bill-header { font-size: 20px; font-weight: 800; text-align: center; letter-spacing: 0.5px; margin-bottom: 2px; }
+    .bill-addr { font-size: 12px; color: #444; text-align: center; font-weight: 600; }
+    .bill-divider { border-top: 2px solid #000; margin: 12px 0; }
+    .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
+    .bill-meta .label { color: #555; }
+    .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; text-align: left; }
+    .bill-table th:not(:first-child) { text-align: right; }
+    .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+    .bill-table td:not(:first-child) { text-align: right; }
+    .bill-table td:last-child { font-weight: 700; }
+    .bill-totals { margin: 8px 0; font-size: 13px; }
+    .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
+    .bill-grand-total { font-size: 18px; font-weight: 800; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
+    .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
+    .bill-divider-dashed { border-top: 1px dashed #000; margin: 8px 0; }
+    .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
+    .bill-paid { background: #dcfce7; color: #166534; text-align: center; padding: 8px; border-radius: 8px; font-weight: 700; font-size: 13px; margin-bottom: 12px; }
+    .qr-section { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 16px; padding-top: 12px; border-top: 1px dashed #000; }
+    .qr-section canvas { border-radius: 8px; }
+    .bill-link { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
+    .bill-link-label { font-size: 11px; color: #444; font-weight: 700; text-align: center; }
+    .print-btn { display: block; width: 100%; padding: 14px; margin-top: 16px; background: #111827; color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
+    .print-btn:active { opacity: 0.8; }
+    .print-btn-outline { display: block; width: 100%; padding: 14px; margin-top: 8px; border: 2px solid #111827; color: #111827; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; background: white; }
+    .print-btn-outline:active { opacity: 0.8; }
+    .no-print { display: block; }
+    .btn-row { display: flex; gap: 8px; margin-top: 16px; }
+    .btn-row .print-btn { margin-top: 0; flex: 1; }
+    .btn-row .print-btn-outline { margin-top: 0; flex: 1; }
+    @media print {
+      @page { size: ${isA4 ? "A4" : "80mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
+      body { background: white; padding: 0; margin: 0; }
+      .no-print { display: none !important; }
+      .bill-wrapper { max-width: none; }
+      .bill-container { box-shadow: none; border-radius: 0; ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6;" : "padding: 3mm 2mm; width: 72mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45;"} }
+      .bill-header { font-size: ${isA4 ? "22px" : "18px"}; }
+      .bill-addr { font-size: ${isA4 ? "13px" : "11px"}; color: #333; }
+      .bill-meta { font-size: ${isA4 ? "14px" : "11px"}; }
+      .bill-divider { border-top: ${isA4 ? "2px" : "1px dashed"} #000; margin: ${isA4 ? "12px" : "5px"} 0; }
+      .bill-table { font-size: ${isA4 ? "14px" : "12px"}; }
+      .bill-table th { padding: ${isA4 ? "8px 4px" : "3px 1px"}; font-size: ${isA4 ? "13px" : "11px"}; }
+      .bill-table td { padding: ${isA4 ? "6px 4px" : "2px 1px"}; }
+      .bill-totals { font-size: ${isA4 ? "14px" : "12px"}; }
+      .bill-total-row { padding: ${isA4 ? "4px 0" : "1.5px 0"}; }
+      .bill-grand-total { font-size: ${isA4 ? "20px" : "16px"}; padding-top: ${isA4 ? "12px" : "4px"}; }
+      .bill-words { font-size: ${isA4 ? "13px" : "10px"}; }
+      .bill-footer { font-size: ${isA4 ? "14px" : "12px"}; }
+      .qr-section { display: none !important; }
+    }
+  `;
+}
 
 function Loading() {
   return (
@@ -87,8 +94,24 @@ export default function PublicBillPage() {
   const [data, setData] = useState<Record<string, unknown> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [format, setFormat] = useState<"thermal" | "a4">("thermal");
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [billUrl, setBillUrl] = useState("");
+
+  function handleA4Print() {
+    setFormat("a4");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
+  }
+
+  useEffect(() => {
+    if (format === "a4") {
+      const onAfterPrint = () => setFormat("thermal");
+      window.addEventListener("afterprint", onAfterPrint, { once: true });
+      return () => window.removeEventListener("afterprint", onAfterPrint);
+    }
+  }, [format]);
 
   useEffect(() => {
     getPublicBillData(orderId).then((r) => {
@@ -208,11 +231,16 @@ export default function PublicBillPage() {
         </div>
       </div>
 
-      <button className="print-btn no-print" onClick={() => window.print()}>
-        🖨️ Print Bill
-      </button>
+      <div className="btn-row no-print">
+        <button className="print-btn" onClick={() => window.print()}>
+          🖨️ Print
+        </button>
+        <button className="print-btn-outline" onClick={handleA4Print}>
+          📄 Save as PDF (A4)
+        </button>
+      </div>
 
-      <style jsx global>{BILL_STYLES}</style>
+      <style dangerouslySetInnerHTML={{ __html: getBillStyles(format) }} />
     </div>
   );
 }

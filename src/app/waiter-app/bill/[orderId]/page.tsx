@@ -25,8 +25,24 @@ export default function BillView() {
   const [reference, setReference] = useState("");
   const [processing, setProcessing] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [format, setFormat] = useState<"thermal" | "a4">("thermal");
   const [billUrl, setBillUrl] = useState("");
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  function handleA4Print() {
+    setFormat("a4");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => window.print());
+    });
+  }
+
+  useEffect(() => {
+    if (format === "a4") {
+      const onAfterPrint = () => setFormat("thermal");
+      window.addEventListener("afterprint", onAfterPrint, { once: true });
+      return () => window.removeEventListener("afterprint", onAfterPrint);
+    }
+  }, [format]);
 
   useEffect(() => {
     getBillData(orderId).then((r) => {
@@ -207,7 +223,13 @@ export default function BillView() {
               onClick={() => window.print()}
               className="w-full bg-gray-900 text-white py-3 rounded-xl font-semibold text-sm"
             >
-              🖨️ Print Bill
+              🖨️ Print
+            </button>
+            <button
+              onClick={handleA4Print}
+              className="w-full border-2 border-gray-900 text-gray-900 py-3 rounded-xl font-semibold text-sm bg-white"
+            >
+              📄 Save as PDF (A4)
             </button>
             <button
               onClick={() => router.push("/waiter-app")}
@@ -219,51 +241,56 @@ export default function BillView() {
         )}
       </div>
 
-      <style jsx global>{`
-        .no-print { display: block; }
-        @media print { .no-print { display: none !important; } body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-        @page { size: 80mm 297mm; margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f3f4f6; margin: 0; padding: 0; }
-        .bill-container { max-width: 420px; margin: 0 auto; padding: 20px 16px; background: white; border-radius: 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
-        .bill-header { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
-        .bill-addr { font-size: 12px; color: #444; font-weight: 600; }
-        .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
-        .bill-bold { font-weight: 700; }
-        .bill-divider { border-top: 2px solid #000; margin: 12px 0; }
-        .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; }
-        .bill-table th:not(:first-child) { text-align: right; }
-        .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
-        .bill-table td:not(:first-child) { text-align: right; }
-        .bill-table td:last-child { font-weight: 700; }
-        .bill-totals { margin: 8px 0; font-size: 13px; }
-        .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
-        .bill-grand-total { font-size: 18px; font-weight: 800; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
-        .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
-        .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
-        .qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed #000; }
-        .qr-section canvas { border-radius: 8px; }
-        .qr-section-label { font-size: 12px; color: #444; font-weight: 700; }
-        .bill-url-text { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
-
-        @media print {
-          .bill-container { width: 72mm; padding: 3mm 2mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45; border-radius: 0; box-shadow: none; max-width: none; }
-          .bill-header { font-size: 18px; font-weight: 700; }
-          .bill-addr { font-size: 11px; color: #333; }
-          .bill-meta { font-size: 11px; }
-          .bill-divider { border-top: 1px dashed #000; margin: 5px 0; }
-          .bill-table { font-size: 12px; }
-          .bill-table th { padding: 3px 1px; font-size: 11px; }
-          .bill-table td { padding: 2px 1px; }
-          .bill-totals { font-size: 12px; }
-          .bill-total-row { padding: 1.5px 0; }
-          .bill-grand-total { font-size: 16px; padding-top: 4px; }
-          .bill-words { font-size: 10px; }
-          .bill-footer { font-size: 12px; }
-          .qr-section { display: none !important; }
-        }
-      `}</style>
+      <style dangerouslySetInnerHTML={{ __html: getWaiterBillStyles(format) }} />
     </>
   );
+}
+
+function getWaiterBillStyles(format: "thermal" | "a4") {
+  const isA4 = format === "a4";
+  return `
+    .no-print { display: block; }
+    @media print { .no-print { display: none !important; } body { background: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+    @page { size: ${isA4 ? "A4" : "80mm 297mm"}; margin: ${isA4 ? "15mm" : "0"}; }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #f3f4f6; margin: 0; padding: 0; }
+    .bill-container { max-width: 420px; margin: 0 auto; padding: 20px 16px; background: white; border-radius: 16px; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; color: #000; }
+    .bill-header { font-size: 20px; font-weight: 800; margin-bottom: 2px; }
+    .bill-addr { font-size: 12px; color: #444; font-weight: 600; }
+    .bill-meta { font-size: 13px; padding: 2px 0; font-weight: 600; }
+    .bill-bold { font-weight: 700; }
+    .bill-divider { border-top: 2px solid #000; margin: 12px 0; }
+    .bill-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .bill-table th { border-bottom: 2px solid #000; padding: 6px 2px; font-weight: 700; font-size: 12px; }
+    .bill-table th:not(:first-child) { text-align: right; }
+    .bill-table td { padding: 5px 2px; border-bottom: 1px solid #e5e7eb; font-weight: 600; }
+    .bill-table td:not(:first-child) { text-align: right; }
+    .bill-table td:last-child { font-weight: 700; }
+    .bill-totals { margin: 8px 0; font-size: 13px; }
+    .bill-total-row { display: flex; justify-content: space-between; padding: 3px 0; font-weight: 600; }
+    .bill-grand-total { font-size: 18px; font-weight: 800; border-top: 2px solid #000; padding-top: 8px; margin-top: 4px; }
+    .bill-words { font-size: 11px; color: #555; font-weight: 600; font-style: italic; text-align: center; margin: 8px 0; }
+    .bill-footer { font-size: 13px; font-weight: 700; text-align: center; margin-top: 8px; padding-top: 8px; border-top: 1px dashed #000; }
+    .qr-section { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-top: 14px; padding-top: 10px; border-top: 1px dashed #000; }
+    .qr-section canvas { border-radius: 8px; }
+    .qr-section-label { font-size: 12px; color: #444; font-weight: 700; }
+    .bill-url-text { font-size: 10px; color: #2563eb; word-break: break-all; text-align: center; font-weight: 600; max-width: 100%; }
+
+    @media print {
+      .bill-container { ${isA4 ? "padding: 0; width: 100%; font-family: system-ui, -apple-system, sans-serif; font-size: 14px; line-height: 1.6; border-radius: 0; box-shadow: none; max-width: none;" : "width: 72mm; padding: 3mm 2mm; font-family: 'Courier New', 'Lucida Console', monospace; font-size: 13px; line-height: 1.45; border-radius: 0; box-shadow: none; max-width: none;"} }
+      .bill-header { font-size: ${isA4 ? "22px" : "18px"}; font-weight: 700; }
+      .bill-addr { font-size: ${isA4 ? "13px" : "11px"}; color: #333; }
+      .bill-meta { font-size: ${isA4 ? "14px" : "11px"}; }
+      .bill-divider { border-top: ${isA4 ? "2px" : "1px dashed"} #000; margin: ${isA4 ? "12px" : "5px"} 0; }
+      .bill-table { font-size: ${isA4 ? "14px" : "12px"}; }
+      .bill-table th { padding: ${isA4 ? "8px 4px" : "3px 1px"}; font-size: ${isA4 ? "13px" : "11px"}; }
+      .bill-table td { padding: ${isA4 ? "6px 4px" : "2px 1px"}; }
+      .bill-totals { font-size: ${isA4 ? "14px" : "12px"}; }
+      .bill-total-row { padding: ${isA4 ? "4px 0" : "1.5px 0"}; }
+      .bill-grand-total { font-size: ${isA4 ? "20px" : "16px"}; padding-top: ${isA4 ? "12px" : "4px"}; }
+      .bill-words { font-size: ${isA4 ? "13px" : "10px"}; }
+      .bill-footer { font-size: ${isA4 ? "14px" : "12px"}; }
+      .qr-section { display: none !important; }
+    }
+  `;
 }
