@@ -72,7 +72,6 @@ services:
       - "3000:3000"
     env_file:
       - ./.env
-      - ../.env
     environment:
       DATABASE_URL: "postgresql://qrdine:${DB_PASSWORD:-qrdine}@postgres:5432/qrdine?schema=public"
       REDIS_URL: "redis://redis:6379"

@@ -50,6 +50,8 @@ export const restaurantUpdateSchema = z.object({
   serviceCharge: z.number().min(0).max(100).optional(),
   logo: z.string().optional().or(z.literal("")),
   billFooter: z.string().max(500).optional().or(z.literal("")),
+  kitchenPhone: z.string().max(20).optional().or(z.literal("")),
+  waiterPhone: z.string().max(20).optional().or(z.literal("")),
 });
 
 export const loginSchema = z.object({
