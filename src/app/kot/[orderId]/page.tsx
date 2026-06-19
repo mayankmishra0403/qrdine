@@ -3,12 +3,12 @@ import { requireAuth } from "@/lib/auth-helpers";
 import { notFound } from "next/navigation";
 
 const KOT_STYLES = `
-  @page { size: 80mm 120mm; margin: 0; }
+  @page { size: 80mm 150mm; margin: 0; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: 'Courier New', 'Lucida Console', monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; padding: 3mm 2mm; width: 72mm; }
-  .item { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; padding: 3px 0; border-bottom: 1px dashed #ccc; }
-  .item-name { flex: 1; }
-  .item-qty { text-align: right; min-width: 36px; }
+  body { font-family: 'Courier New', 'Courier', monospace; font-size: 14px; line-height: 1.5; color: #000; background: #fff; padding: 1.5mm 2mm; width: 80mm; }
+  .item { display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; padding: 4px 0; border-bottom: 1px dashed #ccc; }
+  .item-name { flex: 1; font-size: 16px; }
+  .item-qty { text-align: right; min-width: 40px; font-size: 16px; }
 `;
 
 export default async function KotPage({
